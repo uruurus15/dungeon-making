@@ -237,20 +237,15 @@ impl App {
         // ---- 描画 ----
         ui.art.draw(scene(kind), 0.0, 0.0, LW, SH);
         chip(ui, LW - 180.0, 12.0, 168.0, 32.0, &format!("{} G", comma(g.gold)), 20.0);
-        if talking {
-            // 話の途中: 名札つきのメッセージ欄(パーティの人は 左に顔)
-            let keeper = match kind {
-                ShopKind::Mayor => Some("村長"),
-                ShopKind::Magic => Some("魔法屋"),
-                ShopKind::Armor => Some("武具屋"),
-                ShopKind::Furniture => Some("家具屋"),
-                ShopKind::Plaza => Some("広場の子"),
-            };
-            crate::stage::draw_talk_face(ui, &st.msg, keeper, 336.0, 84.0);
-        } else {
-            msgbox(16.0, 336.0, 544.0, 84.0);
-            ui.text_wrap(&st.msg, 32.0, 346.0, 510.0, 22.0, CREAM, 28.0);
-        }
+        // 店の人の 一言は いつも 名札つき(「＊」の行は システムの文)
+        let keeper = match kind {
+            ShopKind::Mayor => Some("村長"),
+            ShopKind::Magic => Some("魔法屋"),
+            ShopKind::Armor => Some("武具屋"),
+            ShopKind::Furniture => Some("家具屋"),
+            ShopKind::Plaza => Some(if st.page == Page::Peddler { "行商人" } else { "広場の子" }),
+        };
+        crate::stage::draw_talk_face(ui, &st.msg, keeper, 336.0, 84.0);
 
         panel_wood(0.0, SH, LW, SH);
         let rows_only: Vec<Row> = rows.iter().map(|(r, _)| Row { label: r.label.clone(), right: r.right.clone(), enabled: r.enabled, badge: r.badge }).collect();
@@ -295,7 +290,7 @@ impl App {
                         let list = buy_list(kind, &self.g);
                         st.menu = ListMenu::new();
                         st.menu.cursor = list.iter().position(|n| n == "ナイフ").unwrap_or(0);
-                        st.msg = "さあ、ナイフを 買っていって!".to_string();
+                        st.msg = "さあ、ナイフを 買っていってね!".to_string();
                     }
                 }
             }
@@ -343,10 +338,11 @@ impl App {
                             }
                         }
                         self.ui.audio.sfx(if bought > 0 { "buy" } else { "blocked" });
-                        st.msg = if bought > 0 { format!("{} を {}個 買った! まいどあり!", n, bought) } else { err };
+                        let peddler = false;
+                        st.msg = if bought > 0 { crate::script::shop_line(kind, peddler, crate::script::ShopEv::Bought(&n, bought)) } else { crate::script::shop_error(kind, peddler, &err) };
                         // 武器を持っていないアレンが 武器を買ったら そのまま そうびする
                         if bought > 0 && kind == ShopKind::Armor && self.g.party[0].equip[0].is_none() && item(&n).map(|d| d.kind == Kind::Weapon).unwrap_or(false) && self.g.equip(0, &n).is_ok() {
-                            st.msg = format!("{} を 買った! さっそく そうびしておいたわ。", n);
+                            st.msg = crate::script::shop_line(kind, false, crate::script::ShopEv::BoughtEquipped(&n));
                         }
                     }
                     Act::Sell(n) => {
@@ -363,31 +359,28 @@ impl App {
                             }
                         }
                         self.ui.audio.sfx(if sold > 0 { "sell" } else { "blocked" });
-                        st.msg = if sold > 0 { format!("{} を {}個 {}G で買いとったよ。", n, sold, total) } else { "それは売れない".to_string() };
-                        if sold > 0 && item(&n).map(|d| d.kind.is_equip()).unwrap_or(false) {
-                            st.msg += " (売った装備は店で買いなおせる)";
-                        }
+                        st.msg = if sold > 0 { crate::script::shop_line(kind, false, crate::script::ShopEv::Sold(&n, sold, total)) } else { crate::script::shop_line(kind, false, crate::script::ShopEv::CantSell) };
                     }
                     Act::SellLoot => {
                         let (n, gold) = self.g.sell_loot();
                         self.ui.audio.sfx(if n > 0 { "sell" } else { "blocked" });
-                        st.msg = if n > 0 { format!("換金アイテム {}個を まとめて {}G で買いとったよ!", n, gold) } else { "売る物が ないね".to_string() };
+                        st.msg = if n > 0 { crate::script::shop_line(kind, false, crate::script::ShopEv::SoldLoot(n as i32, gold)) } else { crate::script::shop_line(kind, false, crate::script::ShopEv::NothingToSell) };
                     }
                     Act::Spell(id) => match self.g.buy_spell(id) {
                         Ok(()) => {
                             self.ui.audio.sfx("buy");
-                            st.msg = format!("「{}」をおぼえた!", spell(id).name)
+                            st.msg = crate::script::shop_line(kind, false, crate::script::ShopEv::SpellLearned(spell(id).name))
                         }
-                        Err(e) => st.msg = e,
+                        Err(e) => st.msg = crate::script::shop_error(kind, false, &e),
                     },
                     Act::Peddler(n) => match self.g.peddler_buy(&n) {
                         Ok(p) => {
                             self.ui.audio.sfx("buy");
-                            st.msg = format!("{} を {}G で 買った! (1つだけの 限定品)", n, p);
+                            st.msg = crate::script::shop_line(kind, true, crate::script::ShopEv::PeddlerBought(&n, p));
                         }
                         Err(e) => {
                             self.ui.audio.sfx("blocked");
-                            st.msg = e;
+                            st.msg = crate::script::shop_error(kind, true, &e);
                         }
                     },
                     Act::Show(n) => {
@@ -403,7 +396,7 @@ impl App {
                                     st.talk.extend(crate::script::clean(crate::script::spell_talk(&id), mei));
                                 }
                             }
-                            Err(e) => st.msg = e,
+                            Err(e) => st.msg = crate::script::shop_error(kind, false, &e),
                         }
                     }
                     Act::Hint => {

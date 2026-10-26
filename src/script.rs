@@ -1314,3 +1314,96 @@ pub fn next_boss_scene(f: usize, mei: bool) -> Vec<String> {
 
 /// 手紙の差し出し人(頭に名前の無い行の話し手)
 pub const LETTER_FROM: &str = "村長の手紙";
+
+// ---------------- 店での やりとり(買う・売る などの 一言。店の人ごとの 話し方) ----------------
+// 頭に何もない行は 店の人の台詞(名札が出る)。「＊」の行は システムの文。
+
+/// 店での できごと
+pub enum ShopEv<'a> {
+    /// 買った(品物, 個数)
+    Bought(&'a str, i32),
+    /// 武器を買って アレンが そのまま そうびした
+    BoughtEquipped(&'a str),
+    /// 売った(品物, 個数, 合計G)
+    Sold(&'a str, i32, i32),
+    /// 売れない品物
+    CantSell,
+    /// 換金アイテムを まとめて売った(個数, 合計G)
+    SoldLoot(i32, i32),
+    /// 売る物が ない
+    NothingToSell,
+    /// おかねが足りない
+    NoMoney,
+    /// 行商人から 買った(品物, ねだん)
+    PeddlerBought(&'a str, i32),
+    /// 行商人の その品は もう 売り切れ(今日 買った)
+    PeddlerSoldOut,
+    /// 魔法を おぼえた
+    SpellLearned(&'a str),
+    /// 魔法屋に見せた 食材が すでに 知っている もの
+    AlreadyKnown,
+}
+
+/// 店の人の 一言(kind=店、peddler=広場の 行商人の ページか)
+pub fn shop_line(kind: ShopKind, peddler: bool, ev: ShopEv) -> String {
+    use ShopEv::*;
+    let who = if peddler { "peddler" } else { kind_key(kind) };
+    match (who, ev) {
+        // 武具屋(おねえさん): 〜わ・〜よ・〜ね
+        ("armor", Bought(n, c)) => format!("{}を {}こね。まいどあり!", n, c),
+        ("armor", BoughtEquipped(n)) => format!("{}ね、まいどあり! さっそく 持たせてあげたわ。", n),
+        ("armor", Sold(n, c, g)) => format!("{}を {}こ、{}Gで 買いとるわ。売った装備は また 買えるわよ。", n, c, g),
+        ("armor", CantSell) => "それは うちじゃ 買いとれないわ。".into(),
+        ("armor", NoMoney) => "あら、お金が 足りないみたいね。".into(),
+        // 魔法屋(おじさん): 〜じゃ・〜のう
+        ("magic", Bought(n, c)) => format!("{}を {}つじゃな。まいどあり。", n, c),
+        ("magic", Sold(n, c, g)) => format!("{}を {}つ、{}Gで 引きとろうかの。", n, c, g),
+        ("magic", CantSell) => "それは わしの店では 引きとれんのう。".into(),
+        ("magic", SoldLoot(c, g)) => format!("どれ、換金のものを {}つ まとめて {}Gで 引きとろう。", c, g),
+        ("magic", NothingToSell) => "引きとれるものが ないようじゃのう。".into(),
+        ("magic", NoMoney) => "おお、金が 足りんようじゃぞ。".into(),
+        ("magic", AlreadyKnown) => "それは もう 知っておるわい。".into(),
+        // 家具屋(だいくさん): へい・〜だぜ
+        ("furn", Bought(n, c)) => format!("{}を {}つ、へいおまち! まいどあり!", n, c),
+        ("furn", Sold(n, c, g)) => format!("{}を {}つ、{}Gで 引きとるぜ。", n, c, g),
+        ("furn", CantSell) => "そいつは うちじゃ 買いとれねえな。".into(),
+        ("furn", NoMoney) => "おっと、金が 足りねえぜ。".into(),
+        // 広場の子: 〜よ・〜だよ
+        ("plaza", Bought(n, c)) => format!("{}を {}こだね。ありがとう!", n, c),
+        ("plaza", Sold(n, c, g)) => format!("{}を {}こ、{}Gで 買うよ!", n, c, g),
+        ("plaza", CantSell) => "それは 買えないよ、ごめんね。".into(),
+        ("plaza", NoMoney) => "あっ、お金が 足りないよ。".into(),
+        // 行商人: 〜でさあ・〜ですぜ
+        ("peddler", PeddlerBought(n, p)) => format!("へい、{}を {}Gで まいど! こいつは 1つきりの 品ですぜ。", n, p),
+        ("peddler", PeddlerSoldOut) => "そいつは 今日はもう 売り切れでさあ。また 5日後に 寄りやす。".into(),
+        ("peddler", NoMoney) => "お客さん、お代が 足りませんぜ。".into(),
+        // 魔法を おぼえた: システムの文
+        (_, SpellLearned(n)) => format!("＊魔法「{}」を おぼえた!", n),
+        // 店ごとの 専用が ない ものは 共通の 言い方
+        (_, Bought(n, c)) => format!("{}を {}つ、まいどあり!", n, c),
+        (_, Sold(n, c, g)) => format!("{}を {}つ、{}Gで 買いとるよ。", n, c, g),
+        (_, CantSell) => "それは 買いとれないよ。".into(),
+        (_, NoMoney) => "お金が 足りないね。".into(),
+        (_, SoldLoot(c, g)) => format!("{}つを まとめて {}Gで 買いとるよ。", c, g),
+        (_, NothingToSell) => "買いとるものが ないね。".into(),
+        (_, BoughtEquipped(n)) => format!("{}を どうぞ。", n),
+        (_, PeddlerBought(n, p)) => format!("{}を {}Gで まいど!", n, p),
+        (_, PeddlerSoldOut) => "それは もう 売り切れだよ。".into(),
+        (_, AlreadyKnown) => "それは もう 知っているよ。".into(),
+    }
+}
+
+/// 店の 処理が 返した エラー文を、店の人の 言い方に 直す(知らない 文は ＊のシステム文にする)
+pub fn shop_error(kind: ShopKind, peddler: bool, e: &str) -> String {
+    if e.contains("おかね") {
+        shop_line(kind, peddler, ShopEv::NoMoney)
+    } else if e.contains("1つだけ") || e.contains("もう 買った") {
+        shop_line(kind, peddler, ShopEv::PeddlerSoldOut)
+    } else if e.contains("もう知っている") {
+        shop_line(kind, peddler, ShopEv::AlreadyKnown)
+    } else if e.starts_with('＊') {
+        e.to_string()
+    } else {
+        format!("＊{}", e)
+    }
+}

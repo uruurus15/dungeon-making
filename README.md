@@ -63,6 +63,7 @@ DS「ダンジョンメーカー 魔法のシャベルと小さな勇者」を�
 | 仲間が加わる場面 | `src/script.rs` の `mei_join_scene`・`jerry_join_scene` |
 | クエストを頼まれるイベント(あいさつ・前金・受けた) | `src/script.rs` の `order_lines`。依頼の本文は `src/data.rs` の `QUESTS` の `text` |
 | 家具屋の新しい部屋の説明 | `src/script.rs` の `FURNITURE_TALK`(大きさ・入口・ねだんは data.rs から自動) |
+| 店で買う・売るときの一言(店の人ごと) | `src/script.rs` の `shop_line`・`shop_error` |
 | 店に入ったときのあいさつ | `src/shop.rs` の `ShopSt::new` |
 | クエストボードの「メインクエスト」の見出し・ヒント(システム文) | `src/quest.rs`(`main_quest`・`grow_hint`・`boss_hint`) |
 | アイテム・魔法・部屋の説明 | `src/data.rs`(`ITEMS` の最後の文字列・`SPELLS`) |
