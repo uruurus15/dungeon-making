@@ -2926,7 +2926,16 @@ fn mayor_tells_the_multi_battle_tip_once_from_day_three() {
     assert!(has_talk(&g, ShopKind::Mayor));
     let l = on_enter(&mut g, ShopKind::Mayor);
     assert!(l.iter().any(|x| x.contains("3びき いっしょに")));
+    assert!(l.iter().all(|x| !x.starts_with("メイミ「")), "メイミが 仲間になる前は しゃべらない");
     assert!(on_enter(&mut g, ShopKind::Mayor).iter().all(|x| !x.contains("3びき いっしょに")), "一度だけ");
+    let mut h = Game::start_story(951);
+    h.party[2].joined = true;
+    h.day = 3;
+    for k in [ShopKind::Armor, ShopKind::Magic, ShopKind::Furniture, ShopKind::Plaza] {
+        let _ = on_enter(&mut h, k);
+    }
+    h.talks_seen.insert(format!("hello:{}", "mayor"));
+    assert!(on_enter(&mut h, ShopKind::Mayor).iter().any(|x| x.starts_with("メイミ「")), "メイミも 話す");
     // 戦闘の ドロップ倍率: 1匹100%・2匹150%・3匹200%(sim.rs finish_win)
     assert!(mon("wan").drops.len() > 0);
 }
