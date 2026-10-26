@@ -58,40 +58,13 @@ pub fn draw_cast(ui: &Ui, cast: &[&str], speaker: Option<&str>, bottom: f32, wal
     }
 }
 
-/// 行数を かぞえる(text_wrap と おなじ 折り返し)
-fn wrap_lines(ui: &Ui, s: &str, w: f32, size: f32) -> usize {
-    let mut lines = 0;
-    for para in s.split('\n') {
-        let mut cur = String::new();
-        for ch in para.chars() {
-            let mut t = cur.clone();
-            t.push(ch);
-            let hang = matches!(ch, '」' | '』' | '。' | '、' | ')' | '!' | '?' | '…');
-            if ui.measure(&t, size) > w && !cur.is_empty() && !hang {
-                lines += 1;
-                cur = ch.to_string();
-            } else {
-                cur = t;
-            }
-        }
-        lines += 1;
-    }
-    lines
-}
+/// メッセージ欄の 文字の 大きさ(どの場面でも 同じ。3行まで 枠に おさまる)
+pub const MSG_SIZE: f32 = 18.0;
+pub const MSG_LH: f32 = 22.0;
 
-/// メッセージ欄に 文を おさめる。2行までは ふつうの 大きさ、それより 多いときは 小さくして 3行(〜4行)でも はみださない
-pub fn fit_text(ui: &Ui, text: &str, x: f32, y: f32, w: f32, box_h: f32) {
-    let (mut size, mut lh) = (22.0, 28.0);
-    if wrap_lines(ui, text, w, size) as f32 * lh > box_h - 22.0 {
-        size = 18.0;
-        lh = 21.0;
-    }
-    if wrap_lines(ui, text, w, size) as f32 * lh > box_h - 14.0 {
-        size = 16.0;
-        lh = 19.0;
-    }
-    let y = if lh < 28.0 { y - 4.0 } else { y };
-    ui.text_wrap(text, x, y, w, size, CREAM, lh);
+/// メッセージ欄に 文を 描く(大きさは いつも 同じ)
+pub fn fit_text(ui: &Ui, text: &str, x: f32, y: f32, w: f32, _box_h: f32) {
+    ui.text_wrap(text, x, y - 2.0, w, MSG_SIZE, CREAM, MSG_LH);
 }
 
 /// 話し手の名札(メッセージ欄の左上)
