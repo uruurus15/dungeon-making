@@ -2912,7 +2912,7 @@ fn jerry_chimes_in_only_after_he_joins() {
 }
 
 #[test]
-fn mayor_tells_the_multi_battle_tip_once_from_day_two() {
+fn mayor_tells_the_multi_battle_tip_once_from_day_three() {
     use crate::script::*;
     use crate::shop::ShopKind;
     let mut g = Game::start_story(950);
@@ -2921,6 +2921,8 @@ fn mayor_tells_the_multi_battle_tip_once_from_day_two() {
     }
     assert!(!battle_tip_pending(&g), "1日めは 言わない");
     g.day = 2;
+    assert!(!battle_tip_pending(&g), "2日めも 言わない");
+    g.day = 3;
     assert!(has_talk(&g, ShopKind::Mayor));
     let l = on_enter(&mut g, ShopKind::Mayor);
     assert!(l.iter().any(|x| x.contains("3びき いっしょに")));
