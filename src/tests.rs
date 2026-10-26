@@ -2910,3 +2910,21 @@ fn jerry_chimes_in_only_after_he_joins() {
     assert!(with.iter().filter(|l| l.starts_with("ジェリー「")).count() >= 15, "あいづちが ところどころ ある");
     sync_party(&Game::start_story(901)); // もとに もどす
 }
+
+#[test]
+fn mayor_tells_the_multi_battle_tip_once_from_day_two() {
+    use crate::script::*;
+    use crate::shop::ShopKind;
+    let mut g = Game::start_story(950);
+    for k in [ShopKind::Armor, ShopKind::Magic, ShopKind::Furniture, ShopKind::Plaza, ShopKind::Mayor] {
+        let _ = on_enter(&mut g, k);
+    }
+    assert!(!battle_tip_pending(&g), "1日めは 言わない");
+    g.day = 2;
+    assert!(has_talk(&g, ShopKind::Mayor));
+    let l = on_enter(&mut g, ShopKind::Mayor);
+    assert!(l.iter().any(|x| x.contains("3びき いっしょに")));
+    assert!(on_enter(&mut g, ShopKind::Mayor).iter().all(|x| !x.contains("3びき いっしょに")), "一度だけ");
+    // 戦闘の ドロップ倍率: 1匹100%・2匹150%・3匹200%(sim.rs finish_win)
+    assert!(mon("wan").drops.len() > 0);
+}

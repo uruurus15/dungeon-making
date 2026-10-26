@@ -619,6 +619,11 @@ pub fn on_enter(g: &mut Game, kind: ShopKind) -> Vec<String> {
         }
         _ => {}
     }
+    // 2日め以降: 魔物を まとめて 倒すと 獲得品が ふえる(村長の 豆知識。一度だけ)
+    if kind == ShopKind::Mayor && battle_tip_pending(g) {
+        g.talks_seen.insert("tip:multi".to_string());
+        v.extend(battle_tip_lines());
+    }
     if matches!(kind, ShopKind::Mayor | ShopKind::Magic | ShopKind::Armor) {
         for (k, lines) in remind_pending(g, kind) {
             g.talks_seen.insert(k);
@@ -642,7 +647,8 @@ pub fn has_talk(g: &Game, kind: ShopKind) -> bool {
     }
     match kind {
         ShopKind::Furniture => !furniture_lines(g, false).is_empty(),
-        ShopKind::Mayor | ShopKind::Armor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty(),
+        ShopKind::Mayor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty() || battle_tip_pending(g),
+        ShopKind::Armor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty(),
         ShopKind::Magic => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty() || magic_pending(g).iter().any(|(_, l)| !l.is_empty()),
         ShopKind::Plaza => false,
     }
@@ -1410,4 +1416,25 @@ pub fn shop_error(kind: ShopKind, peddler: bool, e: &str) -> String {
     } else {
         format!("＊{}", e)
     }
+}
+
+// ---------------- 村長の 豆知識: 一度に たくさんの 魔物と 戦うと 獲得品が ふえる ----------------
+
+/// 2日め以降に、はじめて 村長の家へ 行ったとき(あいさつまわりが 済んでから)
+pub fn battle_tip_pending(g: &Game) -> bool {
+    g.day >= 2 && !g.talks_seen.contains("tip:multi") && !tour_pending(g, ShopKind::Mayor)
+}
+
+pub fn battle_tip_lines() -> Vec<String> {
+    [
+        "おお、帰ったか。ダンジョンは どうじゃった? …ときに、ひとつ 教えておこう。",
+        "魔物は 1ぴきより 2ひき、2ひきより 3びき いっしょに 戦ったほうが、落とす物が 多くなるそうじゃ。",
+        "アレン「まとめて 戦うほど 得ってこと? 危なそうだけど…」",
+        "うむ。そのぶん 手強いがの。入口を 4方向から入れる 部屋に すると、まとめて 相手に できるそうじゃ。たぶんな。",
+        "ジェリー「ぷるん?」",
+        "アレン「また『たぶん』だ…。」",
+    ]
+    .iter()
+    .map(|l| l.to_string())
+    .collect()
 }
