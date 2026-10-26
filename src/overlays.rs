@@ -19,6 +19,8 @@ pub enum Overlay {
     Options(ListMenu),
     /// クエストボード(true=受ける・届ける、false=見るだけ)
     Board(crate::board::BoardSt, bool),
+    /// タイトルへ もどる かくにん(寝ていない データは セーブされない)
+    TitleConfirm(ListMenu),
 }
 
 impl Overlay {
@@ -122,15 +124,34 @@ impl App {
                 if self.g.party[1].joined {
                     labels.push("ものまね");
                 }
-                labels.extend(["オプション", "とじる"]);
+                labels.extend(["オプション", "タイトルへ もどる", "とじる"]);
                 let rows: Vec<Row> = labels.iter().map(|l| Row::new(*l)).collect();
-                match menu.run(&self.ui, &self.inp, &rows, r, 56.0, 26.0, Style::Parchment, true) {
+                match menu.run(&self.ui, &self.inp, &rows, r, 46.0, 24.0, Style::Parchment, true) {
                     MenuEv::Confirm(i) if labels[i] == "ステータス" => new_ov = Some(Overlay::Status(0)),
                     MenuEv::Confirm(i) if labels[i] == "そうび" => new_ov = Some(Overlay::Equip { who: 0, menu: ListMenu::new(), sub: None }),
                     MenuEv::Confirm(i) if labels[i] == "どうぐ" => new_ov = Some(Overlay::Items { menu: ListMenu::new(), pick: None, msg: String::new() }),
                     MenuEv::Confirm(i) if labels[i] == "ものまね" => new_ov = Some(Overlay::Mimic { menu: ListMenu::new(), sub: None, msg: String::new() }),
                     MenuEv::Confirm(i) if labels[i] == "オプション" => new_ov = Some(Overlay::Options(ListMenu::new())),
+                    MenuEv::Confirm(i) if labels[i] == "タイトルへ もどる" => new_ov = Some(Overlay::TitleConfirm(ListMenu::new())),
                     MenuEv::Confirm(_) | MenuEv::Cancel => keep = false,
+                    MenuEv::None => {}
+                }
+            }
+            Overlay::TitleConfirm(menu) => {
+                let r = Rect::new(80.0, SH + 150.0, 416.0, 130.0);
+                parchment(40.0, SH + 20.0, LW - 80.0, 280.0);
+                self.ui.text_center("タイトルへ もどりますか?", LW / 2.0, SH + 36.0, 24.0, INK);
+                self.ui.text_center("寝ていない データは セーブされません。", LW / 2.0, SH + 76.0, 21.0, rgb(160, 40, 30));
+                self.ui.text_center("(セーブは 家で 寝たときに されます)", LW / 2.0, SH + 108.0, 16.0, INK);
+                let rows = vec![Row::new("やめる"), Row::new("タイトルへ もどる")];
+                menu.no_page = true;
+                match menu.run(&self.ui, &self.inp, &rows, r, 52.0, 24.0, Style::Parchment, true) {
+                    MenuEv::Confirm(1) => {
+                        keep = false;
+                        self.scr = crate::Scr::Title(ListMenu::new());
+                        self.ui.audio.sfx("ok");
+                    }
+                    MenuEv::Confirm(_) | MenuEv::Cancel => new_ov = Some(Overlay::menu()),
                     MenuEv::None => {}
                 }
             }

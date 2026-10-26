@@ -3,7 +3,7 @@
 
 use crate::model3d::Model;
 use crate::modeling::*;
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 fn arc_poly(z0: f32, z1: f32, y_base: f32, rise: f32, n: usize) -> Vec<(f32, f32)> {
     let mut v = vec![(z0, y_base), (z1, y_base)];
@@ -668,5 +668,150 @@ pub fn miasma_machine() -> Model {
     }
     // ゆかに たまった ガス(うすい むらさき)
     m.ellipsoid([0.0, 0.01, 0.0], [0.52, 0.015, 0.5], 4, 14, &|_, _| col(170, 90, 220));
+    m.done()
+}
+
+// ---------------- 地形: 階段・魔穴(3Dで 床の 上に 立つ) ----------------
+
+/// 上りの階段(入口): 町へ 出る 階段。石の だんが うしろへ のぼり、行きづまりに 光の さす アーチ
+pub fn stairs_up() -> Model {
+    let mut m = Mb::new();
+    let stone = col(150, 144, 138);
+    m.jitter = 0.08;
+    // だん(手前が ひくく、うしろへ のぼる)
+    let n = 6;
+    for i in 0..n {
+        let z = 0.36 - i as f32 * 0.15;
+        let h = 0.07 * (i + 1) as f32;
+        m.rbox(0.0, 0.0, z, 0.74, h, 0.15, 0.012, shadec(stone, 0.9 + 0.04 * i as f32));
+    }
+    // かべ(両がわ)
+    for sx in [-1.0f32, 1.0] {
+        m.rbox(sx * 0.43, 0.0, -0.05, 0.14, 0.62, 0.95, 0.015, shadec(stone, 0.8));
+        m.rbox(sx * 0.43, 0.62, -0.05, 0.16, 0.05, 0.97, 0.01, shadec(stone, 1.1));
+    }
+    m.jitter = 0.0;
+    // アーチの 出口(しろい 光)
+    let mut arch = vec![(-0.3f32, 0.4), (0.3, 0.4)];
+    for k in 0..=12 {
+        let a = k as f32 / 12.0;
+        arch.push((0.3 - 0.6 * a, 0.62 + 0.26 * (a * PI).sin()));
+    }
+    m.at([0.0, 0.0, -0.47], FRAC_PI_2, 0.0, 0.0, |m| {
+        m.extrude_x(&arch, -0.03, 0.03, shadec(stone, 1.05));
+    });
+    m.at([0.0, 0.0, -0.43], FRAC_PI_2, 0.0, 0.0, |m| {
+        let mut light = vec![(-0.24f32, 0.42), (0.24, 0.42)];
+        for k in 0..=12 {
+            let a = k as f32 / 12.0;
+            light.push((0.24 - 0.48 * a, 0.62 + 0.2 * (a * PI).sin()));
+        }
+        m.extrude_x(&light, -0.01, 0.0, col(255, 250, 205));
+    });
+    // ひかりの すじ(ゆかへ)
+    m.bx(0.0, 0.002, -0.2, 0.3, 0.003, 0.5, col(255, 248, 200), false);
+    // まどの ランタン
+    for sx in [-1.0f32, 1.0] {
+        m.tube([sx * 0.36, 0.5, 0.0], [sx * 0.36, 0.62, 0.0], 0.02, 0.02, 6, col(70, 60, 50), true);
+        m.ellipsoid([sx * 0.36, 0.66, 0.0], [0.035, 0.045, 0.035], 6, 8, &|_, _| col(255, 220, 120));
+    }
+    m.done()
+}
+
+/// 下りの階段: ゆかに あいた 四角い あな。石の ふちと、くらい 底へ おりる だん、ゆかの 光る やじるし
+pub fn stairs_down() -> Model {
+    let mut m = Mb::new();
+    let stone = col(146, 140, 134);
+    let dark = col(26, 22, 32);
+    // ゆか(あなの まわり 4まいの 板)
+    let (hx, hz) = (0.3f32, 0.3f32);
+    m.jitter = 0.07;
+    m.bx(0.0, -0.002, 0.0, 1.0, 0.0, 0.0, stone, false);
+    for (cx, cz, sx, sz) in [(0.0f32, (0.5 + hz) / 2.0, 1.0f32, 0.5 - hz), (0.0, -(0.5 + hz) / 2.0, 1.0, 0.5 - hz), ((0.5 + hx) / 2.0, 0.0, 0.5 - hx, 2.0 * hz), (-(0.5 + hx) / 2.0, 0.0, 0.5 - hx, 2.0 * hz)] {
+        m.flat([[cx - sx / 2.0, 0.0, cz + sz / 2.0], [cx + sx / 2.0, 0.0, cz + sz / 2.0], [cx + sx / 2.0, 0.0, cz - sz / 2.0], [cx - sx / 2.0, 0.0, cz - sz / 2.0]], [0.0, 1.0, 0.0], stone);
+    }
+    m.jitter = 0.0;
+    // ふち(低い 石の わく)
+    for (cx, cz, sx, sz) in [(0.0f32, hz + 0.03, 2.0 * hx + 0.12, 0.07f32), (0.0, -hz - 0.03, 2.0 * hx + 0.12, 0.07), (hx + 0.03, 0.0, 0.07, 2.0 * hz), (-hx - 0.03, 0.0, 0.07, 2.0 * hz)] {
+        m.rbox(cx, 0.0, cz, sx, 0.05, sz, 0.012, shadec(stone, 1.12));
+    }
+    // あなの かべ(うちがわ)と 底
+    let depth = 0.55;
+    for (p0, p1, n) in [([-hx, 0.0, hz], [hx, 0.0, hz], [0.0f32, 0.0, -1.0f32]), ([hx, 0.0, -hz], [-hx, 0.0, -hz], [0.0, 0.0, 1.0]), ([-hx, 0.0, -hz], [-hx, 0.0, hz], [1.0, 0.0, 0.0]), ([hx, 0.0, hz], [hx, 0.0, -hz], [-1.0, 0.0, 0.0])] {
+        m.flat([p0, p1, [p1[0], -depth, p1[2]], [p0[0], -depth, p0[2]]], n, shadec(dark, 1.6));
+    }
+    m.flat([[-hx, -depth, hz], [hx, -depth, hz], [hx, -depth, -hz], [-hx, -depth, -hz]], [0.0, 1.0, 0.0], dark);
+    // おりる だん(あなの なかを まっすぐ さがる)
+    for i in 0..6 {
+        let z = hz - 0.05 - i as f32 * 0.095;
+        let y = -0.07 * (i + 1) as f32;
+        m.rbox(0.0, y - 0.05, z, 2.0 * hx - 0.04, 0.05, 0.1, 0.008, shadec(stone, 0.9 - 0.08 * i as f32));
+    }
+    // ゆかの やじるし(光る ▼)
+    for k in 0..2 {
+        let z = 0.43 - k as f32 * 0.0;
+        let w = 0.16 - 0.04 * k as f32;
+        m.flat([[-w, 0.004, z - 0.04 + 0.0], [w, 0.004, z - 0.04], [0.0, 0.004, z + 0.04], [0.0, 0.004, z + 0.04]], [0.0, 1.0, 0.0], col(255, 224, 120));
+        let _ = k;
+    }
+    // 四すみの ちいさな ランプ
+    for (x, z) in [(-0.43f32, 0.43f32), (0.43, 0.43), (-0.43, -0.43), (0.43, -0.43)] {
+        m.tube([x, 0.0, z], [x, 0.13, z], 0.02, 0.016, 6, col(80, 72, 64), true);
+        m.ellipsoid([x, 0.16, z], [0.03, 0.035, 0.03], 6, 8, &|_, _| col(255, 220, 120));
+    }
+    m.done()
+}
+
+/// 魔穴(ボスが 出る 穴): ぎざぎざの 岩の ふち、うずまく むらさきの 光の あな、立ちのぼる けむりと ルーン
+pub fn portal_hole() -> Model {
+    let mut m = Mb::new();
+    let mut rnd = Rnd(97);
+    let glow = col(190, 80, 255);
+    let rock = col(84, 74, 96);
+    let r_hole = 0.3f32;
+    // ゆか(あなの そと)
+    m.lathe(0.0, -0.002, 0.0, &[(r_hole, 0.0), (0.58, 0.0)], 24, &|_, _| col(70, 62, 78));
+    // ぎざぎざの 岩の ふち
+    for k in 0..16 {
+        let a = k as f32 / 16.0 * TAU;
+        let r = r_hole + 0.03 + 0.02 * (k % 2) as f32;
+        let h = rnd.range(0.05, 0.12);
+        m.at([r * a.sin(), 0.0, r * a.cos()], a, 0.0, rnd.range(-0.2, 0.2), |m| {
+            m.rbox(0.0, 0.0, 0.0, 0.1, h, 0.07, 0.015, shadec(rock, 0.8 + 0.4 * rnd.next()));
+        });
+    }
+    // あなの うちがわ(くらい すり鉢)
+    m.lathe(0.0, 0.0, 0.0, &[(r_hole, 0.0), (0.26, -0.1), (0.18, -0.22), (0.08, -0.3), (0.0, -0.32)], 20, &|i, _| mix(col(40, 20, 70), glow, i as f32 / 5.0 * 0.6));
+    // うずまきの 光(らせんの ひも)
+    for arm in 0..3 {
+        let base = arm as f32 / 3.0 * TAU;
+        let mut prev = [r_hole * 0.9 * base.sin(), -0.01, r_hole * 0.9 * base.cos()];
+        for s in 1..=14 {
+            let t = s as f32 / 14.0;
+            let r = r_hole * 0.9 * (1.0 - t);
+            let a = base + t * 5.5;
+            let p = [r * a.sin(), -0.01 - 0.28 * t * t, r * a.cos()];
+            m.tube(prev, p, 0.016 * (1.0 - 0.5 * t), 0.015 * (1.0 - 0.5 * t), 5, mix(glow, col(255, 230, 255), t), false);
+            prev = p;
+        }
+    }
+    m.ellipsoid([0.0, -0.05, 0.0], [0.07, 0.04, 0.07], 6, 8, &|_, _| col(255, 235, 255));
+    // 立ちのぼる けむり(ぐにゃぐにゃの たま)
+    for k in 0..4 {
+        let a = k as f32 / 4.0 * TAU + 0.4;
+        for s in 0..6 {
+            let t = s as f32 / 5.0;
+            let r = 0.12 * (1.0 + t) + 0.04 * (t * 7.0 + a).sin();
+            let (x, z) = (0.12 * a.sin() + r * 0.4 * (t * 5.0 + a).sin(), 0.12 * a.cos() + r * 0.4 * (t * 5.0 + a).cos());
+            let sz = 0.022 + 0.018 * t;
+            m.ellipsoid([x * 0.8, 0.05 + 0.5 * t, z * 0.8], [sz, sz * 1.3, sz], 6, 8, &|_, _| mix(col(150, 60, 220), col(210, 160, 255), t));
+        }
+    }
+    // うかぶ ルーンの わと かけら
+    m.ring(0.0, 0.5, 0.0, 0.26, 0.245, 28, glow);
+    for k in 0..6 {
+        let a = k as f32 / 6.0 * TAU;
+        m.at([0.25 * a.sin(), 0.5, 0.25 * a.cos()], a, 0.3, 0.3, |m| m.ellipsoid([0.0, 0.0, 0.0], [0.02, 0.04, 0.02], 5, 6, &|_, _| col(240, 200, 255)));
+    }
     m.done()
 }

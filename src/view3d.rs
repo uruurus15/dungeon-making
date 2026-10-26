@@ -330,15 +330,15 @@ impl crate::App {
             let mut floor_tex: Option<&Texture2D> = art.get("tile_floor");
             let mut uv = (0.0, 0.0, 1.0, 1.0);
             let mut room_idx: Option<(usize, usize)> = None;
+            let mut skip_floor = false;
             match me {
                 C::Open => {
                     if let Some(i) = d.room_at(x as usize, y as usize) {
                         room_idx = d.rooms[i].slot_at(x as usize, y as usize).map(|s| (i, s));
                     }
-                    match d.tile(x as usize, y as usize) {
-                        Tile::Floor if (x as usize, y as usize) == ent => floor_tex = art.get("tile_stairs_up"),
-                        Tile::StairsDown => floor_tex = art.get("tile_stairs_down"),
-                        _ => {}
+                    // 階段・魔穴は 3Dモデル(ゆかの 絵は 使わない)
+                    if matches!(d.tile(x as usize, y as usize), Tile::StairsDown | Tile::Portal) {
+                        skip_floor = true;
                     }
                 }
                 C::Chamber(i, s) => room_idx = Some((i, s)),
@@ -358,7 +358,9 @@ impl crate::App {
                     }
                 }
             }
-            plane(floor_tex, [c3(x0, y0, 0.5), c3(x1, y0, 0.5), c3(x1, y1, 0.5), c3(x0, y1, 0.5)], uv, 1.0, None);
+            if !skip_floor {
+                plane(floor_tex, [c3(x0, y0, 0.5), c3(x1, y0, 0.5), c3(x1, y1, 0.5), c3(x0, y1, 0.5)], uv, 1.0, None);
+            }
             // ---- 天井 ----
             plane(ceil, [c3(x0, y0, -0.5), c3(x1, y0, -0.5), c3(x1, y1, -0.5), c3(x0, y1, -0.5)], (0.0, 0.0, 1.0, 1.0), 0.55, None);
             // ---- 壁(となりと行き来できない面。カメラの側から見える面だけ)----
@@ -409,9 +411,18 @@ impl crate::App {
             }
             // ---- 置いてある物・魔物 ----
             let center = c3(fx, fy, 0.0);
-            if d.tile(x as usize, y as usize) == Tile::Portal {
-                let s = 0.95 + 0.06 * pulse(ui.t);
-                billboard(art, "tile_portal", center, s, 0.0, 1.0);
+            // 階段・魔穴の 3Dモデル(出口は 北へ むかって 光が さす)
+            let terrain = match d.tile(x as usize, y as usize) {
+                Tile::Portal => Some("tile_portal"),
+                Tile::StairsDown => Some("tile_stairs_down"),
+                Tile::Floor if (x as usize, y as usize) == ent => Some("tile_stairs_up"),
+                _ => None,
+            };
+            // 自分が 乗っている 階段・魔穴の 上では 描かない(目の前を ふさぐため)
+            if let (Some(name), false) = (terrain, (x, y) == (g.pos.0 as i32, g.pos.1 as i32)) {
+                if let Some(m) = self.model(name, 0) {
+                    crate::model3d::draw_model(&m, &cam, fx, fy, (0.0, -1.0), 1.0, 0.0, 1.0);
+                }
             }
             let lod = if center.z > 3.6 { 1u8 } else { 0u8 };
             let to_cam_front = (-cam.fx, -cam.fy);

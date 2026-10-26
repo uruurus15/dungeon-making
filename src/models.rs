@@ -38,6 +38,9 @@ pub fn all_models() -> Vec<(&'static str, String, String, f32)> {
             v.push(("施設", format!("{}(あけた)", r.name), format!("{}_open", art), 0.95));
         }
     }
+    v.push(("地形", "階段(上り・入口)".to_string(), "tile_stairs_up".to_string(), 0.95));
+    v.push(("地形", "階段(下り)".to_string(), "tile_stairs_down".to_string(), 0.95));
+    v.push(("地形", "魔穴".to_string(), "tile_portal".to_string(), 0.95));
     let mut seen = std::collections::BTreeSet::new();
     for m in MONS {
         if seen.insert(m.sprite) {

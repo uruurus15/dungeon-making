@@ -138,6 +138,11 @@ fn lighting(nwx: f32, nwy: f32, up: f32) -> f32 {
 /// モデルを 世界に置いて描く。(wx,wy)=足もとの世界の位置、front=モデルの前が 向く方向(世界の平面)、
 /// size=大きさ(マス)、lift=床からの高さ、tint=全体の明るさ
 pub fn draw_model(m: &Model, cam: &Cam, wx: f32, wy: f32, front: (f32, f32), size: f32, lift: f32, tint: f32) {
+    // 目の うしろ・すぐ そばに ある モデルは 描かない(設備を 背にしたとき 視界を ふさぐのを 防ぐ)
+    let pivot = cam.to_cam(wx, wy, 0.0);
+    if pivot.z < 0.45 * size.max(0.5) {
+        return;
+    }
     let fl = (front.0 * front.0 + front.1 * front.1).sqrt().max(1e-4);
     let (fx, fy) = (front.0 / fl, front.1 / fl);
     // モデルの「右」(正面から 見て 右)
@@ -158,6 +163,10 @@ pub fn draw_model(m: &Model, cam: &Cam, wx: f32, wy: f32, front: (f32, f32), siz
         let cxm = (pts[0].x + pts[2].x) / 2.0;
         let cym = (pts[0].y + pts[2].y) / 2.0;
         let facing = nc.x * cxm + nc.y * cym + nc.z * cz0 < 0.0;
+        // 目のすぐ手前・うしろに ある 面は 描かない(うしろに ある 大きな 設備が 画面いっぱいに なるのを 防ぐ)
+        if cz0 < 0.3 {
+            continue;
+        }
         // 描く順番: 目からの きょり(まっすぐな 奥行きでなく)
         let cz = (cxm * cxm + cym * cym + cz0 * cz0).sqrt();
         if !facing && !q.dbl {
