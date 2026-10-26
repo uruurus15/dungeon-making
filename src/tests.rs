@@ -898,7 +898,7 @@ fn big_room_does_not_swallow_hidden_items() {
             }
         }
     }
-    assert_eq!(g.gold, gold0 + 4000, "掘ると 隠しアイテム(4000ギル)が手に入る");
+    assert_eq!(g.gold, gold0 + 4000, "掘ると 隠しアイテム(4000G)が手に入る");
     g.pos = (5, 7);
     g.facing = Dir::Up;
     assert!(g.place_room("はたけ").is_ok());

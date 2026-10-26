@@ -100,9 +100,9 @@ impl App {
         let unarmed = crate::script::tour_on(&self.g) && self.g.party[0].equip[0].is_none() && self.g.count("ナイフ") == 0;
         let msg = st.msg.clone().unwrap_or_else(|| {
             if crate::script::tour_left(&self.g) > 0 {
-                "みんなに あいさつ まわりを しよう。赤い「!」の ある家へ。".to_string()
+                "アレン「みんなに あいさつ まわりを しよう。赤い「!」の ある 家へ 行ってみよう。」".to_string()
             } else if unarmed {
-                "武器が ないと 心細いな…。武具屋で ナイフを 買っておこう。".to_string()
+                "アレン「武器が ないと 心細いな…。武具屋で ナイフを 買っておこう。」".to_string()
             } else {
                 "どこへ行く?".to_string()
             }
@@ -208,7 +208,7 @@ impl App {
             ROW_SELL => {
                 let (n, gold) = self.g.sell_loot();
                 self.ui.audio.sfx(if n > 0 { "sell" } else { "blocked" });
-                st.msg = Some(if n > 0 { format!("換金アイテム {}個を まとめて売った! {}ギル", n, gold) } else { "売る物が ない".to_string() });
+                st.msg = Some(if n > 0 { format!("換金アイテム {}個を まとめて売った! {}G", n, gold) } else { "売る物が ない".to_string() });
                 None
             }
             _ => {

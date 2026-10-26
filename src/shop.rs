@@ -317,11 +317,6 @@ impl App {
                     Act::Go(p) => {
                         st.page = p;
                         st.menu = ListMenu::new();
-                        if kind == ShopKind::Magic && !self.g.visited_magic {
-                            self.g.visited_magic = true;
-                            self.g.veg_stock.insert("カツオブシ".to_string());
-                            st.msg = "初めてじゃな。カツオブシは広場でも買えるようにしておこう。".to_string();
-                        }
                     }
                     Act::Leave => return Some(Scr::Town(TownSt::new(None))),
                     Act::Buy(n) => {

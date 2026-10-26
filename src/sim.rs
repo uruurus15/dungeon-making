@@ -1112,7 +1112,7 @@ impl Game {
                     if let Some(g) = name.strip_prefix('G') {
                         let v: i32 = g.parse().unwrap_or(0);
                         self.gold += v;
-                        return Ok(format!("壁の中から {}ギル を見つけた!", v));
+                        return Ok(format!("壁の中から {}G を見つけた!", v));
                     }
                     self.add_item(&name, 1);
                     return Ok(format!("壁の中から {} を見つけた!", name));
@@ -1276,7 +1276,7 @@ impl Game {
                 if let Some(gil) = name.strip_prefix('G') {
                     let v: i32 = gil.parse().unwrap_or(0);
                     self.gold += v;
-                    found.push(format!("{}ギル", v));
+                    found.push(format!("{}G", v));
                 } else {
                     self.add_item(&name, 1);
                     found.push(name);
@@ -1962,7 +1962,7 @@ impl Game {
         self.gold += q.reward_gold;
         let mut msg = format!("「{}」を達成!", q.title);
         if q.reward_gold > 0 {
-            msg += &format!(" {}ギルもらった。", q.reward_gold);
+            msg += &format!(" {}Gもらった。", q.reward_gold);
         }
         if let Some(it) = q.reward_item {
             self.add_item(it, 1);

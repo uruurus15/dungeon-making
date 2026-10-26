@@ -400,6 +400,11 @@ impl App {
                 self.g.dbg_miasma(k);
                 self.scr = Scr::Dungeon(dungeon::DunSt::new());
             }
+            "shop_tour" => {
+                self.debug = true;
+                self.g = Game::start_story(7);
+                self.scr = Scr::Shop(shop::ShopSt::new(shop::ShopKind::Magic, &self.g));
+            }
             "tour" => {
                 // はじめからで はじめて町に戻ったところ(あいさつまわり)
                 self.debug = true;
@@ -413,7 +418,7 @@ impl App {
                 self.g.party[2].joined = true;
                 let q = data::quest(if name == "scene_quest" { "halter" } else { "dino" });
                 let (bg, who) = script::quest_giver_scene(q);
-                let mut lines = script::quest_done_lines(q, true, "「ワーネコのホルター」を達成! 400ギルもらった。");
+                let mut lines = script::quest_done_lines(q, true, "「ワーネコのホルター」を達成! 400G もらった。");
                 if let Ok(t) = std::env::var("DM_LINES") {
                     lines = t.split('|').map(|l| l.to_string()).collect();
                 }

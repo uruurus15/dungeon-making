@@ -692,7 +692,7 @@ impl App {
     /// どこからでも町へ帰る(次に「ダンジョンへ」で階を選べる)
     pub fn leave_to_town(&mut self) -> Scr {
         self.g.return_to_entrance();
-        Scr::Town(TownSt::new(Some("町へ もどってきた。いらないものを 売って、おうちで ごはんにしよう。".to_string())))
+        Scr::Town(TownSt::new(Some("アレン「町へ もどってきた。いらないものを 売って、うちで ごはんに しよう。」".to_string())))
     }
 
     /// 入口から: 2階以降なら上の階へ、1階なら町へ
@@ -705,7 +705,7 @@ impl App {
             None
         } else {
             self.g.return_to_entrance();
-            Some(Scr::Town(TownSt::new(Some("町へ もどってきた。いらないものを 売って、おうちで ごはんにしよう。".to_string()))))
+            Some(Scr::Town(TownSt::new(Some("アレン「町へ もどってきた。いらないものを 売って、うちで ごはんに しよう。」".to_string()))))
         }
     }
 }

@@ -23,7 +23,7 @@ pub struct HomeSt {
 impl HomeSt {
     pub fn new(g: &crate::sim::Game) -> HomeSt {
         let mq = crate::quest::main_quest(g);
-        HomeSt { page: HomePage::Main, menu: ListMenu::new(), msg: format!("ただいま! ごはんを食べて、ゆっくり休もう。\n▶ {}", mq.title) }
+        HomeSt { page: HomePage::Main, menu: ListMenu::new(), msg: format!("アレン「ただいま! ごはんを 食べて、ゆっくり 休もう。」\n▶ {}", mq.title) }
     }
 }
 
@@ -54,7 +54,7 @@ impl App {
                     MenuEv::Confirm(0) => {
                         st.page = HomePage::Meal;
                         st.menu = ListMenu::new();
-                        st.msg = "なにを作ろう? 作れる料理が光ってるよ。".to_string();
+                        st.msg = "アレン「なにを 作ろうかな。作れる 料理が 光ってるよ。」".to_string();
                     }
                     MenuEv::Confirm(1) => match self.g.shovel_polish() {
                         Ok(m) => {
@@ -68,7 +68,7 @@ impl App {
                         st.page = HomePage::ConfirmSleep;
                         st.menu = ListMenu::new();
                         st.msg = if self.g.ate.iter().all(|a| *a) {
-                            "もう寝る? 寝ているあいだに魔物がダンジョンに住みつくよ。".to_string()
+                            "アレン「もう 寝ようか。寝ている あいだに 魔物が ダンジョンに 住みつくんだって。」".to_string()
                         } else {
                             // まだ 食べていない 仲間の 名前を 出して、アレンが 注意する
                             let hungry: Vec<String> = self.g.members().into_iter().filter(|&i| !self.g.ate[i]).map(|i| if i == 0 { "僕".to_string() } else { self.g.party[i].name.clone() }).collect();

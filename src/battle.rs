@@ -216,7 +216,7 @@ impl App {
                                         } else {
                                             lines.push("モンスターを たおした!".to_string());
                                         }
-                                        lines.push(format!("{} ギルを てにいれた!", st.b.gold));
+                                        lines.push(format!("{} Gを てにいれた!", st.b.gold));
                                         for d in &st.b.got {
                                             lines.push(format!("{} を てにいれた!", d));
                                         }

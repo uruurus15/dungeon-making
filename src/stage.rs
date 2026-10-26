@@ -58,6 +58,42 @@ pub fn draw_cast(ui: &Ui, cast: &[&str], speaker: Option<&str>, bottom: f32, wal
     }
 }
 
+/// 行数を かぞえる(text_wrap と おなじ 折り返し)
+fn wrap_lines(ui: &Ui, s: &str, w: f32, size: f32) -> usize {
+    let mut lines = 0;
+    for para in s.split('\n') {
+        let mut cur = String::new();
+        for ch in para.chars() {
+            let mut t = cur.clone();
+            t.push(ch);
+            let hang = matches!(ch, '」' | '』' | '。' | '、' | ')' | '!' | '?' | '…');
+            if ui.measure(&t, size) > w && !cur.is_empty() && !hang {
+                lines += 1;
+                cur = ch.to_string();
+            } else {
+                cur = t;
+            }
+        }
+        lines += 1;
+    }
+    lines
+}
+
+/// メッセージ欄に 文を おさめる。2行までは ふつうの 大きさ、それより 多いときは 小さくして 3行(〜4行)でも はみださない
+pub fn fit_text(ui: &Ui, text: &str, x: f32, y: f32, w: f32, box_h: f32) {
+    let (mut size, mut lh) = (22.0, 28.0);
+    if wrap_lines(ui, text, w, size) as f32 * lh > box_h - 22.0 {
+        size = 18.0;
+        lh = 21.0;
+    }
+    if wrap_lines(ui, text, w, size) as f32 * lh > box_h - 14.0 {
+        size = 16.0;
+        lh = 19.0;
+    }
+    let y = if lh < 28.0 { y - 4.0 } else { y };
+    ui.text_wrap(text, x, y, w, size, CREAM, lh);
+}
+
 /// 話し手の名札(メッセージ欄の左上)
 pub fn nameplate(ui: &Ui, who: &str, x: f32, y: f32) {
     let w = ui.measure(who, 20.0) + 24.0;
@@ -74,7 +110,7 @@ pub fn draw_talk(ui: &Ui, line: &str, default: Option<&'static str>, cast: &[&st
     if let Some(w) = who {
         nameplate(ui, w, 28.0, box_y - 14.0);
     }
-    ui.text_wrap(&text, 34.0, box_y + 16.0, 508.0, 22.0, CREAM, 28.0);
+    fit_text(ui, &text, 34.0, box_y + 16.0, 508.0, box_h);
 }
 
 /// 顔のアイコン(パーティの人の 顔だけ。立ち絵は出さない)
@@ -100,8 +136,8 @@ pub fn draw_talk_face(ui: &Ui, line: &str, default: Option<&'static str>, box_y:
         draw_rectangle(26.0, fy, 72.0, 72.0, rgb(52, 36, 22));
         ui.art.draw(face, 27.0, fy + 1.0, 70.0, 70.0);
         draw_rectangle_lines(26.0, fy, 72.0, 72.0, 2.5, rgb(232, 217, 168));
-        ui.text_wrap(&text, 112.0, box_y + 14.0, 436.0, 22.0, CREAM, 28.0);
+        fit_text(ui, &text, 112.0, box_y + 14.0, 436.0, box_h);
     } else {
-        ui.text_wrap(&text, 34.0, box_y + 14.0, 508.0, 22.0, CREAM, 28.0);
+        fit_text(ui, &text, 34.0, box_y + 14.0, 508.0, box_h);
     }
 }
