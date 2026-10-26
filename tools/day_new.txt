@@ -1,0 +1,11 @@
+# typical day (NEW controls). town rows: 0 quest 1 armor 2 magic 3 furniture 4 plaza 5 mayor 6 home 7 dungeon 8 bulk-sell 9 menu
+down down down ok wait ok ok ok cancel cancel wait
+down down down down ok wait
+left dig up up left dig right dig up up left dig room ok right dig room ok
+up up wait wait wait up ok hold wait wait wait wait wait wait
+up up wait wait wait up ok hold wait wait wait wait wait wait
+up up wait wait wait up ok hold wait wait wait wait wait wait
+menu down down down ok wait
+down ok wait
+up up ok wait ok ok wait
+down ok ok wait

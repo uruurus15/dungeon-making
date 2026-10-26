@@ -1,0 +1,7 @@
+/target
+/art_work
+/shots
+savedata*.json
+settings.json
+*.log
+__pycache__/

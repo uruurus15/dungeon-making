@@ -1,0 +1,3 @@
+[target.wasm32-unknown-unknown]
+# JavaScript 側の 関数(quad-storage など)を import として 残す
+rustflags = ["-C", "link-arg=--import-undefined"]
