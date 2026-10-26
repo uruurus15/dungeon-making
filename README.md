@@ -238,3 +238,10 @@ DS「ダンジョンメーカー 魔法のシャベルと小さな勇者」を�
 
 - **寝る前の警告**: まだごはんを食べていない仲間がいるのに「ねる」を選ぶと、アレンが 名前入りで 「ちょっと待って。僕とジェリーは まだ ごはんを 食べてないよ。…」と 注意する(顔つき)
 - **ジェリーのあいづち**: 仲間になったあと、村長の話・ボスの知らせ・クエスト達成の会話に「ジェリー「ぷるん!」」などが ところどころ入る(`script.rs`。仲間になる前は 自動で 消える)
+
+## Web版(GitHub Pages)
+- ビルド: `cargo build --release --target wasm32-unknown-unknown` → `python tools/pack_web.py`(`docs/` に index.html・wasm・JS・assets.pack(画像・音・フォントを1つに)ができる)
+- 確認: `cd docs && python -m http.server 8765` → ブラウザで http://localhost:8765/ 。ヘッドレス確認は `python tools/web_probe.py`(コンソールログ・画面・フレーム時間)
+- セーブ・設定は ブラウザの localStorage。素材は 初回に assets.pack(約14MB)を まとめて ダウンロード。日本語フォントは 同梱の Noto Sans JP(OFL・使う文字だけに 絞った 約0.5MB)
+- タイトルで **F2** を押すと、12Fの 部屋と魔物が たくさんある ダンジョンが 3D表示で 開く(動作確認用)
+- 公開: GitHub の Settings → Pages で `main` ブランチの `/docs` を 公開元にする
