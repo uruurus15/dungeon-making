@@ -3052,3 +3052,38 @@ fn recipes_are_listed_in_the_order_their_ingredients_unlock() {
     let pos = |n: &str| o.iter().position(|r| r.name == n).unwrap();
     assert!(pos("スライムにこみ") < pos("オバケのタルト"), "スライムにこみは 1Fの食材なので 前のほう");
 }
+
+#[test]
+fn quest_only_items_drop_only_as_many_as_the_quest_needs() {
+    let run = |g: &mut Game| -> usize {
+        g.dungeon.roamers.push(Roamer { x: 8, y: 11, mon: "cat".into() });
+        g.dbg.onehit = true;
+        let mut b = Battle::new(g, &[Source::Roamer(0)]);
+        for _ in 0..20 {
+            match b.advance(g) {
+                Advance::NeedCmd(i) => {
+                    b.command(g, i, Cmd::Attack(0));
+                }
+                Advance::End(_) => break,
+                Advance::Msgs(_) => {}
+            }
+        }
+        b.got.iter().filter(|n| n.as_str() == "ワーネコホルター").count()
+    };
+    // 持っていない間は 出る(12%)。1つ 持ったら もう 出ない
+    let mut dropped = 0;
+    for seed in 0..400u64 {
+        let mut g = Game::new(3000 + seed);
+        dropped += run(&mut g);
+        assert!(g.count("ワーネコホルター") <= 1, "1個だけ");
+        g.add_item("ワーネコホルター", 1);
+        assert_eq!(run(&mut g), 0, "持っているあいだは 出ない");
+    }
+    assert!(dropped > 0, "持っていなければ 出る");
+    // 達成ずみの クエストの 品は もう 出ない
+    let mut g = Game::new(3999);
+    g.quests.insert("halter".into(), (2, 1));
+    for _ in 0..300 {
+        assert_eq!(run(&mut g), 0);
+    }
+}

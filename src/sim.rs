@@ -2245,6 +2245,16 @@ impl Battle {
             for (name, pct) in e.def.drops {
                 let food = item(name).map(|d| matches!(d.kind, Kind::Food | Kind::Veg)).unwrap_or(false);
                 let p = (pct * mult / 100 * if fridge && food { 2 } else { 1 }).min(100);
+                // クエスト用の品は、必要な 数だけ(持っている・この戦闘で もう 出た ぶんを ふくむ)。達成ずみの クエストの 品は 出ない
+                if let Some(d) = item(name) {
+                    if d.kind == Kind::Quest {
+                        let have = g.count(name) + got.iter().filter(|x| x.as_str() == *name).count() as i32;
+                        let wanted = QUESTS.iter().any(|q| q.need == *name && g.quest_state(q.id) != 2 && have < q.count);
+                        if !wanted {
+                            continue;
+                        }
+                    }
+                }
                 if g.rng.chance(p) {
                     // 瘴気発生装置: 装備には +1〜+(置いた数)が つく
                     let is_equip = item(name).map(|d| d.kind.is_equip()).unwrap_or(false);
