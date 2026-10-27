@@ -43,6 +43,8 @@ pub struct Input {
     pub mouse: Vec2,
     pub click: bool,
     pub rclick: bool,
+    /// マウスホイール(+=下へ、-=上へ。1ノッチで 1)
+    pub wheel: i32,
     pub moved: bool,
     last_mouse: Vec2,
     hold: [f32; 4],
@@ -122,6 +124,8 @@ impl Input {
         self.mouse = m;
         self.click = is_mouse_button_pressed(MouseButton::Left);
         self.rclick = is_mouse_button_pressed(MouseButton::Right);
+        let wy = mouse_wheel().1;
+        self.wheel = if wy > 0.0 { -1 } else if wy < 0.0 { 1 } else { 0 };
         if self.rclick {
             self.cancel = true;
         }
@@ -608,6 +612,12 @@ impl ListMenu {
             if inp.left && vis < n && !self.no_page {
                 self.cursor = self.cursor.saturating_sub(vis);
             }
+        }
+        // ホイールで 一覧を スクロール(カーソルは 見える 範囲に とどめる)
+        if active && inp.wheel != 0 && n > vis {
+            let max_scroll = n - vis;
+            self.scroll = (self.scroll as i32 + inp.wheel * 2).clamp(0, max_scroll as i32) as usize;
+            self.cursor = self.cursor.clamp(self.scroll, self.scroll + vis - 1);
         }
         if self.cursor < self.scroll {
             self.scroll = self.cursor;

@@ -398,6 +398,9 @@ impl App {
                 self.debug = true;
                 let k: usize = n[6..].parse().unwrap_or(3);
                 self.g.dbg_miasma(k);
+                if std::env::var("DM_2D").is_ok() {
+                    self.g.map3d = false;
+                }
                 self.scr = Scr::Dungeon(dungeon::DunSt::new());
             }
             "shop_tour" => {

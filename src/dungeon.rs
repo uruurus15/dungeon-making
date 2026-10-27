@@ -97,7 +97,9 @@ impl App {
         let mw = g.dungeon.w() as f32 * TS;
         let mh = g.dungeon.h() as f32 * TS;
         let vh = SH - OFFY;
-        let cx = ((g.pos.0 as f32 + 0.5) * TS - LW / 2.0).clamp(0.0, mw - LW);
+        // 右の 操作ボタン(幅176)に 隠れないよう、主人公を ボタンを のぞいた 左の 領域の まんなかに おく
+        let view_w = LW - 176.0;
+        let cx = ((g.pos.0 as f32 + 0.5) * TS - view_w / 2.0).clamp(0.0, (mw - view_w).max(0.0));
         let cy = ((g.pos.1 as f32 + 0.5) * TS - vh / 2.0).clamp(0.0, mh - vh);
         (cx, cy)
     }

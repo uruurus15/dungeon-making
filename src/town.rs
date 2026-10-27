@@ -238,8 +238,8 @@ pub fn item_help(name: &str) -> String {
     match item(name) {
         Some(d) => {
             let extra = match d.kind {
-                Kind::Weapon => format!("  こうげき +{}", d.power),
-                Kind::Shield | Kind::Head | Kind::Body | Kind::Feet => format!("  ぼうぎょ +{}", d.power),
+                Kind::Weapon => format!("  ATK+{}", d.power),
+                Kind::Shield | Kind::Head | Kind::Body | Kind::Feet => format!("  DEF+{}", d.power),
                 _ => String::new(),
             };
             format!("{}{}", d.desc, extra)
