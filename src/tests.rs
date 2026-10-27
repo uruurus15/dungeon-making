@@ -2996,3 +2996,46 @@ fn quest_items_cannot_be_sold_or_listed_for_sale() {
         assert!(!g.owned_defs().into_iter().any(|i| i.sell > 0 && i.name == d.name), "売る一覧に 出ない");
     }
 }
+
+#[test]
+fn bosses_are_mimicable_only_when_defeated_in_a_magic_circle() {
+    let fight = |g: &mut Game, room: Option<&str>| {
+        if let Some(k) = room {
+            g.dungeon.rooms.push(Room { x: 2, y: 2, w: 1, h: 1, front: (2, 2), kind: k.into(), door: Dir::Down, open4: false, mons: vec![Some("lion".into())], chest_open: false, refill: 0 });
+        } else {
+            g.dungeon.roamers.push(Roamer { x: 8, y: 11, mon: "lion".into() });
+        }
+        g.dbg.onehit = true;
+        let src = if room.is_some() { Source::Room(0, 0) } else { Source::Roamer(0) };
+        let mut b = Battle::new(g, &[src]);
+        for _ in 0..20 {
+            match b.advance(g) {
+                Advance::NeedCmd(i) => {
+                    b.command(g, i, Cmd::Attack(0));
+                }
+                Advance::End(_) => break,
+                Advance::Msgs(_) => {}
+            }
+        }
+    };
+    let mut a = Game::new(980);
+    fight(&mut a, None);
+    assert!(!a.mimic_known.contains("lion"), "通路で たおしても 覚えない");
+    let mut b = Game::new(981);
+    fight(&mut b, Some("エサおけ"));
+    assert!(!b.mimic_known.contains("lion"), "ほかの部屋でも 覚えない");
+    let mut c = Game::new(982);
+    fight(&mut c, Some("まほうじん"));
+    assert!(c.mimic_known.contains("lion"), "まほうじんで たおすと 覚える");
+}
+
+#[test]
+fn equipment_special_effects_are_listed_with_numbers() {
+    use crate::town::{equip_effects, item_help};
+    assert_eq!(equip_effects("炎のティアラ"), "炎耐性30");
+    assert_eq!(equip_effects("ルビーのゆびわ"), "炎耐性10・じょうぶさ+1");
+    assert_eq!(equip_effects("かがみのたて"), "光耐性30");
+    assert!(item_help("炎のティアラ").contains("炎耐性30"));
+    assert!(item_help("炎のティアラ").contains("DEF+5"));
+    assert!(equip_effects("ナイフ").is_empty());
+}

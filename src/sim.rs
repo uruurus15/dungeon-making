@@ -2223,9 +2223,13 @@ impl Battle {
         let beaten: Vec<&Enemy> = self.enemies.iter().filter(|e| !e.fled).collect();
         let miasma = g.miasma_count();
         for e in &beaten {
-            g.mimic_known.insert(e.def.id.to_string());
+            // ボスは まほうじんで 出た 個体を 倒したときだけ ものまねできる(本物の ボス戦では 覚えない)
+            let from_circle = matches!(e.src, Source::Room(i, _) if g.dungeon.rooms[i].kind == "まほうじん");
+            if !e.def.boss || from_circle {
+                g.mimic_known.insert(e.def.id.to_string());
+            }
             // 瘴気で 強くなった魔物を 倒すと、その 最大の 強さで ものまねの 能力が 上書きされる
-            if miasma > 0 && g.party.len() > 1 {
+            if miasma > 0 && g.party.len() > 1 && (!e.def.boss || from_circle) {
                 let ent = g.party[1].mimic_plus.entry(e.def.id.to_string()).or_insert(0);
                 *ent = (*ent).max(miasma as u8);
             }

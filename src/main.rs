@@ -417,6 +417,15 @@ impl App {
                 self.g.facing = match v.get(3).copied().unwrap_or("u") { "d" => sim::Dir::Down, "l" => sim::Dir::Left, "r" => sim::Dir::Right, _ => sim::Dir::Up };
                 self.scr = Scr::Dungeon(dungeon::DunSt::new());
             }
+            "equip" => {
+                self.debug = true;
+                self.g.preset(3);
+                for n in ["炎のティアラ", "アツイローブ", "ルビーのゆびわ", "かがみのたて"] {
+                    self.g.add_item(n, 1);
+                }
+                self.scr = Scr::Town(town::TownSt::new(None));
+                self.ov = Some(overlays::Overlay::Equip { who: 0, menu: ListMenu::new(), sub: None });
+            }
             "tour" => {
                 // はじめからで はじめて町に戻ったところ(あいさつまわり)
                 self.debug = true;

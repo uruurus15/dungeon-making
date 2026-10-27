@@ -234,6 +234,29 @@ pub fn comma(n: i32) -> String {
     out.chars().rev().collect()
 }
 
+/// 装備の 特殊な 能力を 数字つきで(炎耐性30・つよさ+1 など)。ない 装備は 空
+pub fn equip_effects(name: &str) -> String {
+    let Some(d) = item(name) else { return String::new() };
+    let mut v: Vec<String> = vec![];
+    let (f, i, l) = resist(name);
+    if f > 0 {
+        v.push(format!("炎耐性{}", f));
+    }
+    if i > 0 {
+        v.push(format!("氷・水耐性{}", i));
+    }
+    if l > 0 {
+        v.push(format!("光耐性{}", l));
+    }
+    match d.ring {
+        1 => v.push(format!("つよさ+{}", d.power)),
+        2 => v.push(format!("じょうぶさ+{}", d.power)),
+        3 => v.push(format!("かしこさ+{}", d.power)),
+        _ => {}
+    }
+    v.join("・")
+}
+
 pub fn item_help(name: &str) -> String {
     match item(name) {
         Some(d) => {
@@ -242,7 +265,10 @@ pub fn item_help(name: &str) -> String {
                 Kind::Shield | Kind::Head | Kind::Body | Kind::Feet => format!("  DEF+{}", d.power),
                 _ => String::new(),
             };
-            format!("{}{}", d.desc, extra)
+            let eff = equip_effects(name);
+            // 特殊効果が ある 装備は 「効果: 炎耐性30」を 足す(説明文に 同じ 数字が あれば 重ねない)
+            let eff_txt = if eff.is_empty() || d.desc.contains(&eff) { String::new() } else { format!("\n効果: {}", eff) };
+            format!("{}{}{}", d.desc, extra, eff_txt)
         }
         None => String::new(),
     }

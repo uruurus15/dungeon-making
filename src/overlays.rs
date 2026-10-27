@@ -226,12 +226,19 @@ impl App {
                             None => Row::new("はずす"),
                             Some(n) => {
                                 let d = item(n).unwrap();
-                                Row::new(format!("{}  x{}", n, self.g.count(n))).right(if d.kind == Kind::Ring { d.desc.to_string() } else { format!("+{}", d.power) })
+                                Row::new(format!("{}  x{}", n, self.g.count(n))).right(if d.kind == Kind::Ring { crate::town::equip_effects(n) } else if d.kind == Kind::Weapon { format!("ATK+{}", d.power) } else { format!("DEF+{}", d.power) })
                             }
                         })
                         .collect();
                     self.ui.text(&format!("{} を えらぶ", SLOT_NAMES[*slot]), 18.0, SH + 38.0, 20.0, rgb(255, 230, 140));
-                    match m2.run(&self.ui, &self.inp, &rows, Rect::new(10.0, SH + 68.0, LW - 20.0, 300.0), 46.0, 22.0, Style::Wood, true) {
+                    // いま えらんでいる 装備の 説明(特殊な 能力も)
+                    let cur = m2.cursor.min(cands.len().saturating_sub(1));
+                    if let Some(Some(n)) = cands.get(cur) {
+                        draw_rectangle(10.0, SH + 322.0, LW - 20.0, 92.0, rgba(24, 18, 10, 235));
+                        draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 92.0, 2.0, rgb(232, 192, 64));
+                        self.ui.text_wrap(&format!("{}\n{}", n, item_help(n)), 20.0, SH + 328.0, LW - 40.0, 17.0, CREAM, 21.0);
+                    }
+                    match m2.run(&self.ui, &self.inp, &rows, Rect::new(10.0, SH + 68.0, LW - 20.0, 250.0), 46.0, 22.0, Style::Wood, true) {
                         MenuEv::Confirm(i) => {
                             match &cands[i] {
                                 None => self.g.unequip(*who, *slot),
@@ -265,8 +272,15 @@ impl App {
                         MenuEv::Cancel => new_ov = Some(Overlay::menu()),
                         MenuEv::None => {}
                     }
+                    // いま つけている 装備の 説明(カーソルの スロット)
+                    let slot_cur = menu.cursor.min(5);
+                    if let Some(n) = self.g.party[*who].equip[slot_cur].clone() {
+                        draw_rectangle(10.0, SH + 322.0, LW - 20.0, 52.0, rgba(24, 18, 10, 235));
+                        draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 52.0, 2.0, rgb(232, 192, 64));
+                        self.ui.text_wrap(&format!("{}: {}", n, item_help(&n)), 20.0, SH + 326.0, LW - 40.0, 16.0, CREAM, 20.0);
+                    }
                     if self.g.party[*who].is_slime {
-                        self.ui.text("ジェリーは ものまねした部分にだけ そうびできる(メニューの「ものまね」)", 18.0, SH + 372.0, 16.0, rgb(255, 200, 160));
+                        self.ui.text("ジェリーは ものまねした部分にだけ そうびできる(メニューの「ものまね」)", 18.0, SH + 380.0, 16.0, rgb(255, 200, 160));
                     }
                     if self.inp.l || self.inp.left {
                         *who = prev_member(&self.g, *who);
