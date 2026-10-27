@@ -3039,3 +3039,16 @@ fn equipment_special_effects_are_listed_with_numbers() {
     assert!(item_help("炎のティアラ").contains("DEF+5"));
     assert!(equip_effects("ナイフ").is_empty());
 }
+
+#[test]
+fn recipes_are_listed_in_the_order_their_ingredients_unlock() {
+    let o = recipe_order();
+    assert_eq!(o.len(), RECIPES.len());
+    assert!(o[0].taught_by.is_none(), "最初から作れる料理が 先頭");
+    let floor = |r: &Recipe| r.taught_by.and_then(|n| food_origin(n)).map(|x| x.0).unwrap_or(0);
+    for w in o.windows(2) {
+        assert!(floor(w[0]) <= floor(w[1]), "{} → {}", w[0].name, w[1].name);
+    }
+    let pos = |n: &str| o.iter().position(|r| r.name == n).unwrap();
+    assert!(pos("スライムにこみ") < pos("オバケのタルト"), "スライムにこみは 1Fの食材なので 前のほう");
+}

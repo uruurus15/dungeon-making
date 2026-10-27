@@ -82,7 +82,8 @@ impl App {
             HomePage::Meal => {
                 ui.text("りょうり", 18.0, SH + 8.0, 24.0, CREAM);
                 let mut rows = vec![Row::new("おまかせ(まだ食べてない人みんな)").right("1回で全員").enabled(!self.g.ate.iter().all(|a| *a))];
-                for r in RECIPES {
+                let order = recipe_order();
+                for r in order.iter().copied() {
                     let known = self.g.recipes.contains(r.name);
                     let can = self.g.can_cook(r);
                     let label = if known { r.name.to_string() } else { "？？？".to_string() };
@@ -92,7 +93,8 @@ impl App {
                 let ev = st.menu.run(ui, &self.inp, &rows, Rect::new(10.0, SH + 40.0, LW - 20.0, 250.0), 44.0, 21.0, Style::Wood, true);
                 // 材料の説明
                 msgbox(10.0, SH + 300.0, LW - 20.0, 118.0);
-                let r = &RECIPES[st.menu.cursor.saturating_sub(1).min(RECIPES.len() - 1)];
+                let order = recipe_order();
+                let r = order[st.menu.cursor.saturating_sub(1).min(order.len() - 1)];
                 if st.menu.cursor == 0 {
                     ui.text_wrap("まだ食べていない人それぞれに、作れる中でいちばん伸びる料理を食べさせるよ。", 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
                 } else if self.g.recipes.contains(r.name) {
@@ -112,7 +114,7 @@ impl App {
                     }
                     MenuEv::Confirm(i) => {
                         let i = i - 1;
-                        st.page = HomePage::Who(RECIPES[i].name);
+                        st.page = HomePage::Who(recipe_order()[i].name);
                         st.menu = ListMenu::new();
                         st.msg = "だれが 食べる?".to_string();
                     }

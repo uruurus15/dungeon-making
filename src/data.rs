@@ -1253,6 +1253,23 @@ pub fn recipe(name: &str) -> Option<&'static Recipe> {
     RECIPES.iter().find(|r| r.name == name)
 }
 
+/// 料理の 表示順: 教わる 食材が 手に入る 階の 浅い 順(最初から作れる物が 先頭)。同じ階なら 登録順
+pub fn recipe_order() -> Vec<&'static Recipe> {
+    let mut v: Vec<(usize, usize, &'static Recipe)> = RECIPES
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let floor = match r.taught_by {
+                None => 0,
+                Some(n) => food_origin(n).map(|(f, _)| f).unwrap_or(1),
+            };
+            (floor, i, r)
+        })
+        .collect();
+    v.sort_by_key(|(f, i, _)| (*f, *i));
+    v.into_iter().map(|(_, _, r)| r).collect()
+}
+
 // ---------------- クエスト ----------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
