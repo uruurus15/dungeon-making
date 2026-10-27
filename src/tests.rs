@@ -2983,3 +2983,16 @@ fn mei_spells_are_sold_only_after_she_joins_and_are_hers() {
     g.buy_spell("frost").unwrap();
     assert!(g.party[2].spells.iter().any(|s| s == "frost") && !g.party[0].spells.iter().any(|s| s == "frost"));
 }
+
+#[test]
+fn quest_items_cannot_be_sold_or_listed_for_sale() {
+    for d in ITEMS.iter().filter(|d| d.kind == Kind::Quest) {
+        assert_eq!(d.sell, 0, "{} は 非売品", d.name);
+        assert_eq!(d.buy, 0);
+        let mut g = Game::new(970);
+        g.add_item(d.name, 1);
+        assert!(g.sell(d.name).is_err(), "{} は 売れない", d.name);
+        assert_eq!(g.count(d.name), 1, "売ろうとしても なくならない");
+        assert!(!g.owned_defs().into_iter().any(|i| i.sell > 0 && i.name == d.name), "売る一覧に 出ない");
+    }
+}
