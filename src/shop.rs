@@ -198,7 +198,7 @@ impl App {
             Page::Spell => {
                 for s in SPELLS.iter().filter(|s| g.spell_for_sale(s)) {
                     rows.push((
-                        Row::new(format!("{}  (MP{})", s.name, s.mp)).right(format!("{}G", s.price)).enabled(g.gold >= s.price).badge(!g.seen.contains(&format!("魔法:{}", s.name))),
+                        Row::new(format!("{}  ({}・MP{})", s.name, g.party[s.user].name, s.mp)).right(format!("{}G", s.price)).enabled(g.gold >= s.price).badge(!g.seen.contains(&format!("魔法:{}", s.name))),
                         Act::Spell(s.id),
                     ));
                 }

@@ -16,6 +16,8 @@ const VIEW_TOP: f32 = 62.0;
 const VIEW_H: f32 = 370.0;
 /// カメラは 自分のマスの中心から これだけ うしろ
 const EYE_BACK: f32 = 0.85;
+/// うしろが 壁・部屋の とき(目が 壁や 部屋の 中に 入らないように)
+const EYE_BACK_NEAR: f32 = 0.3;
 /// 描くマスの範囲(自分から 何マスまで)
 const RADIUS: i32 = 9;
 
@@ -38,10 +40,10 @@ pub(crate) struct Cam {
 }
 
 impl Cam {
-    pub fn new(px: f32, py: f32, yaw: f32) -> Cam {
+    pub fn new(px: f32, py: f32, yaw: f32, back: f32) -> Cam {
         let (fx, fy) = (yaw.sin(), -yaw.cos());
         let (rx, ry) = (yaw.cos(), yaw.sin());
-        Cam { ex: px - fx * EYE_BACK, ey: py - fy * EYE_BACK, fx, fy, rx, ry }
+        Cam { ex: px - fx * back, ey: py - fy * back, fx, fy, rx, ry }
     }
     pub fn to_cam(&self, wx: f32, wy: f32, h: f32) -> V3 {
         let (dx, dy) = (wx - self.ex, wy - self.ey);
@@ -251,14 +253,19 @@ impl crate::App {
     }
 
     /// カメラの位置・向きを 目標へ なめらかに近づける(戻り値: x, y, 向き)
-    fn cam3_step(&self) -> (f32, f32, f32) {
+    fn cam3_step(&self) -> (f32, f32, f32, f32) {
         let g = &self.g;
         let (tx, ty, tyaw) = (g.pos.0 as f32, g.pos.1 as f32, yaw_of(g.facing));
-        let [mut x, mut y, mut yaw, floor, init] = self.cam3.get();
+        let [mut x, mut y, mut yaw, floor, init, mut back] = self.cam3.get();
+        // 目の うしろが 歩ける 通路なら 引いて見る。壁・部屋の とびらなら 近く(部屋に 入りこまない)
+        let (bx, by) = (g.pos.0 as i32 - g.facing.d().0, g.pos.1 as i32 - g.facing.d().1);
+        let open_behind = cell(&g.dungeon, bx, by) == C::Open && passable(&g.dungeon, (g.pos.0 as i32, g.pos.1 as i32), (bx, by));
+        let back_t = if open_behind { EYE_BACK } else { EYE_BACK_NEAR };
         let dt = get_frame_time().min(0.1);
         if init == 0.0 || floor != g.floor_no() as f32 || (x - tx).abs() + (y - ty).abs() > 2.2 {
-            (x, y, yaw) = (tx, ty, tyaw);
+            (x, y, yaw, back) = (tx, ty, tyaw, back_t);
         } else {
+            back += (back_t - back) * (1.0 - (-dt * 10.0).exp());
             let k = 1.0 - (-dt * 17.0).exp();
             x += (tx - x) * k;
             y += (ty - y) * k;
@@ -279,8 +286,8 @@ impl crate::App {
                 yaw = tyaw;
             }
         }
-        self.cam3.set([x, y, yaw, g.floor_no() as f32, 1.0]);
-        (x, y, yaw)
+        self.cam3.set([x, y, yaw, g.floor_no() as f32, 1.0, back]);
+        (x, y, yaw, back)
     }
 
     pub fn draw_map3d(&self) {
@@ -289,8 +296,8 @@ impl crate::App {
         let d = &g.dungeon;
         let art = &ui.art;
         draw_rectangle(0.0, 0.0, LW, crate::ui::SH, rgb(14, 11, 18));
-        let (px, py, yaw) = self.cam3_step();
-        let cam = Cam::new(px, py, yaw);
+        let (px, py, yaw, back) = self.cam3_step();
+        let cam = Cam::new(px, py, yaw, back);
         let ent = d.entrance();
         let rock = art.get("tile_rock");
         let ceil = art.get("tile_bedrock");

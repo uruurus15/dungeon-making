@@ -59,7 +59,7 @@ pub struct App {
     pub quit: bool,
     pub debug: bool,
     /// 3Dのカメラ: [x, y, 向き, 階, 初期化ずみ]
-    pub cam3: std::cell::Cell<[f32; 5]>,
+    pub cam3: std::cell::Cell<[f32; 6]>,
     /// 絵から作った 3Dモデルの ため置き
     pub models: std::cell::RefCell<std::collections::HashMap<(String, u8), std::rc::Rc<model3d::Model>>>,
     /// F4 で モデル一覧を 開く前の画面
@@ -405,6 +405,15 @@ impl App {
                 self.g = Game::start_story(7);
                 self.scr = Scr::Shop(shop::ShopSt::new(shop::ShopKind::Magic, &self.g));
             }
+            n if n.starts_with("room3dat_") => {
+                // room3dat_<部屋>_<x>_<y>_<u|d|l|r>: 部屋を 置いた 1Fで その位置・向きに 立つ
+                self.debug = true;
+                let v: Vec<&str> = n[9..].split('_').collect();
+                self.g.dbg_showroom(v[0], false);
+                self.g.pos = (v[1].parse().unwrap_or(8), v[2].parse().unwrap_or(9));
+                self.g.facing = match v.get(3).copied().unwrap_or("u") { "d" => sim::Dir::Down, "l" => sim::Dir::Left, "r" => sim::Dir::Right, _ => sim::Dir::Up };
+                self.scr = Scr::Dungeon(dungeon::DunSt::new());
+            }
             "tour" => {
                 // はじめからで はじめて町に戻ったところ(あいさつまわり)
                 self.debug = true;
@@ -507,7 +516,7 @@ async fn main() {
         toast: None,
         quit: false,
         debug: false,
-        cam3: std::cell::Cell::new([0.0; 5]),
+        cam3: std::cell::Cell::new([0.0; 6]),
         models: Default::default(),
         prev_scr: None,
         jerry_synced: None,

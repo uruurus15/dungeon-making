@@ -2939,3 +2939,47 @@ fn mayor_tells_the_multi_battle_tip_once_from_day_three() {
     // 戦闘の ドロップ倍率: 1匹100%・2匹150%・3匹200%(sim.rs finish_win)
     assert!(mon("wan").drops.len() > 0);
 }
+
+#[test]
+fn chest_keys_drop_only_when_that_chest_is_on_the_floor() {
+    let kill = |g: &mut Game| {
+        g.dungeon.roamers.push(Roamer { x: 8, y: 11, mon: "bat".into() });
+        g.dbg.onehit = true;
+        let mut b = Battle::new(g, &[Source::Roamer(0)]);
+        for _ in 0..20 {
+            match b.advance(g) {
+                Advance::NeedCmd(i) => {
+                    b.command(g, i, Cmd::Attack(0));
+                }
+                Advance::End(_) => break,
+                Advance::Msgs(_) => {}
+            }
+        }
+        b.got.iter().filter(|n| n.contains("カギ")).count()
+    };
+    let mut none = 0;
+    let mut some = 0;
+    for seed in 0..600u64 {
+        let mut g = Game::new(2000 + seed);
+        none += kill(&mut g);
+        let mut h = Game::new(2000 + seed);
+        h.dungeon.rooms.push(Room { x: 2, y: 2, w: 1, h: 1, front: (2, 2), kind: "てつのたからばこ".into(), door: Dir::Down, open4: false, mons: vec![None], chest_open: false, refill: 0 });
+        some += kill(&mut h);
+    }
+    assert_eq!(none, 0, "たからばこが ない階では カギは 落ちない");
+    assert!(some > 0, "ある階では 落ちる");
+}
+
+#[test]
+fn mei_spells_are_sold_only_after_she_joins_and_are_hers() {
+    let mut g = Game::start_story(960);
+    g.reached = 5;
+    g.spells_open.insert("frost".into());
+    let frost = spell("frost");
+    assert!(!g.spell_for_sale(frost), "メイミが まだ いない");
+    g.party[2].joined = true;
+    assert!(g.spell_for_sale(frost));
+    g.gold = 100000;
+    g.buy_spell("frost").unwrap();
+    assert!(g.party[2].spells.iter().any(|s| s == "frost") && !g.party[0].spells.iter().any(|s| s == "frost"));
+}

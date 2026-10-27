@@ -1980,7 +1980,7 @@ impl Game {
     }
 
     pub fn spell_for_sale(&self, s: &Spell) -> bool {
-        if s.price == 0 || self.party[s.user].spells.iter().any(|x| x == s.id) {
+        if s.price == 0 || !self.party[s.user].joined || self.party[s.user].spells.iter().any(|x| x == s.id) {
             return false;
         }
         match s.id {
@@ -2254,7 +2254,9 @@ impl Battle {
             }
             if !e.def.boss {
                 for tier in CHESTS.iter() {
-                    if g.dungeon.floor >= tier.drop_from_floor && g.rng.chance(tier.drop_pct) {
+                    // その階に 同じ種類の たからばこが 置いてあるときだけ カギを 落とす
+                    let has_chest = g.dungeon.rooms.iter().any(|r| r.kind == tier.room);
+                    if has_chest && g.dungeon.floor >= tier.drop_from_floor && g.rng.chance(tier.drop_pct) {
                         got.push(tier.key.to_string());
                     }
                 }

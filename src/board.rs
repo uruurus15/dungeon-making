@@ -169,6 +169,7 @@ impl App {
                             if interactive {
                                 // 達成の会話(依頼者とアレンたち)。終わったら 町へ もどる
                                 let (bg, who) = crate::script::quest_giver_scene(q);
+                                crate::script::sync_party(&self.g);
                                 let lines = crate::script::quest_done_lines(q, self.g.party[2].joined, &m);
                                 let t = crate::talk::TalkSt::new(bg, lines, crate::Scr::Town(crate::town::TownSt::new(None))).speaker(who).faces();
                                 self.scr = crate::Scr::Talk(Box::new(t));

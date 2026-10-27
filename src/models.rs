@@ -96,7 +96,7 @@ impl App {
         draw_rectangle(0.0, 0.0, LW, SH, rgb(34, 28, 40));
         // 上画面: 4x3 の並び(えらんだ物は 枠がつく)
         let (cw, ch) = (LW / COLS as f32, SH / ROWS as f32);
-        let cam = Cam::new(0.0, 0.0, 0.0);
+        let cam = Cam::new(0.0, 0.0, 0.0, 0.85);
         let range: Vec<usize> = if st.big { vec![st.sel] } else { (0..on_page).collect() };
         for k in range {
             let (name_cat, name, art, size) = &list[st.page * PER + k];

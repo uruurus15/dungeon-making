@@ -187,6 +187,7 @@ impl App {
         }
         let _ = before_day;
         // ボスを倒した次の朝: 村長から 次のボスの知らせ(手紙)。3日めの朝は メイミの場面が先
+        crate::script::sync_party(&self.g);
         let mei = self.g.party[2].joined;
         let mut next = Scr::Morning(lines);
         for &f in rep.news.iter().rev() {
