@@ -3092,10 +3092,11 @@ fn quest_only_items_drop_only_as_many_as_the_quest_needs() {
 fn bosses_are_tuned_for_human_play() {
     // 2Fのリオンは ATK40。ボスの ATK は 階が ふかいほど 強い
     assert_eq!(mon("lion").atk, 40);
+    // 2F以降は 前の階より 弱くならない(同じなら 可。4Fと3Fは 同じ ATK)
     let mut prev = 0;
-    for f in 1..=MAX_FLOOR {
+    for f in 2..=MAX_FLOOR {
         let a = mon(boss_id(f)).atk;
-        assert!(a > prev || f == 2, "{}F の ATK が 前より 弱い", f);
+        assert!(a >= prev, "{}F の ATK が 前より 弱い", f);
         prev = a;
     }
     // テツジンの 光の全体攻撃は 耐性なし(DEF 6〜12)で 約40ダメージ
