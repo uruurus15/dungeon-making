@@ -735,7 +735,8 @@ fn many_days_loop() {
         for _ in 0..700 {
             town(&mut g);
             // 全滅したら町に戻る。ワープで いちばん深い階へ
-            let r = g.reached;
+            // 4日に1度は 浅い階にも 行く(料理に要る 食材は 浅い階の魔物からしか 手に入らない物もある)
+            let r = if g.day % 4 == 3 && g.reached > 1 { 1 + (g.day as usize / 4) % (g.reached - 1) } else { g.reached };
             g.warp(r);
             go_down_if_ready(&mut g);
             let f = g.floor_no();
@@ -3145,4 +3146,18 @@ fn bosses_are_tuned_for_human_play() {
     let msgs = b.test_elem_all(&mut g, &[0], "テツジン", "きょうれつなひかり", 45, 2);
     let dmg: i32 = 9999 - g.party[0].hp;
     assert!((38..=45).contains(&dmg), "{} {:?}", dmg, msgs);
+}
+
+#[test]
+fn normal_monster_drop_total_is_capped() {
+    for m in MONS {
+        let total: u32 = m.drops.iter().map(|d| drop_permille(m, d.1)).sum();
+        if m.boss {
+            assert!(m.drops.iter().all(|d| drop_permille(m, d.1) == d.1 * 10));
+        } else {
+            assert!(total <= DROP_TOTAL_MAX * 10, "{} の ドロップ合計 {}‰", m.name, total);
+        }
+    }
+    // 合計が 上限いかの 魔物は 表のまま
+    assert_eq!(drop_permille(mon("wan"), mon("wan").drops[0].1) > 0, true);
 }

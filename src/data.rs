@@ -598,6 +598,22 @@ pub fn iron_chest(floor: usize) -> &'static [&'static str] {
 
 // ---------------- モンスター ----------------
 
+/// 魔物1体を 単体で 倒したときの ドロップ率の 合計の 上限(%)。ボス以外は これを こえないよう 比例で 下げる
+pub const DROP_TOTAL_MAX: u32 = 35;
+
+/// ドロップ1つの 実際の 確率(1000分率)。ボスは 表の まま。ふつうの 魔物は、合計が DROP_TOTAL_MAX% を こえるとき 比例で 下げる
+pub fn drop_permille(m: &MonDef, pct: u32) -> u32 {
+    if m.boss {
+        return pct * 10;
+    }
+    let total: u32 = m.drops.iter().map(|d| d.1).sum();
+    if total > DROP_TOTAL_MAX {
+        pct * DROP_TOTAL_MAX * 10 / total
+    } else {
+        pct * 10
+    }
+}
+
 pub struct MonDef {
     pub id: &'static str,
     pub name: &'static str,

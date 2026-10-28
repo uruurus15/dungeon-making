@@ -30,6 +30,10 @@ impl Rng {
     pub fn chance(&mut self, pct: u32) -> bool {
         self.next() % 100 < pct
     }
+    /// 1000分率
+    pub fn chance_permille(&mut self, pm: u32) -> bool {
+        self.next() % 1000 < pm
+    }
     pub fn pick<T: Copy>(&mut self, v: &[T]) -> T {
         v[(self.next() as usize) % v.len()]
     }
@@ -2274,7 +2278,7 @@ impl Battle {
             let fridge = matches!(e.src, Source::Room(i, _) if g.dungeon.rooms[i].kind == "れいぞうこ");
             for (name, pct) in e.def.drops {
                 let food = item(name).map(|d| matches!(d.kind, Kind::Food | Kind::Veg)).unwrap_or(false);
-                let p = (pct * mult / 100 * if fridge && food { 2 } else { 1 }).min(100);
+                let p = (drop_permille(e.def, *pct) * mult / 100 * if fridge && food { 2 } else { 1 }).min(1000);
                 // クエスト用の品は、必要な 数だけ(持っている・この戦闘で もう 出た ぶんを ふくむ)。達成ずみの クエストの 品は 出ない
                 if let Some(d) = item(name) {
                     if d.kind == Kind::Quest {
@@ -2285,7 +2289,7 @@ impl Battle {
                         }
                     }
                 }
-                if g.rng.chance(p) {
+                if g.rng.chance_permille(p) {
                     // 瘴気発生装置: 装備には +1〜+(置いた数)が つく
                     let is_equip = item(name).map(|d| d.kind.is_equip()).unwrap_or(false);
                     if is_equip && miasma > 0 {
