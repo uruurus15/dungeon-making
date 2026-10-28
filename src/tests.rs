@@ -3087,3 +3087,32 @@ fn quest_only_items_drop_only_as_many_as_the_quest_needs() {
         assert_eq!(run(&mut g), 0);
     }
 }
+
+#[test]
+fn bosses_are_tuned_for_human_play() {
+    // 2Fのリオンは ATK40。ボスの ATK は 階が ふかいほど 強い
+    assert_eq!(mon("lion").atk, 40);
+    let mut prev = 0;
+    for f in 1..=MAX_FLOOR {
+        let a = mon(boss_id(f)).atk;
+        assert!(a > prev || f == 2, "{}F の ATK が 前より 弱い", f);
+        prev = a;
+    }
+    // テツジンの 光の全体攻撃は 耐性なし(DEF 6〜12)で 約40ダメージ
+    let mut g = Game::new(990);
+    g.dungeon.roamers.push(Roamer { x: 8, y: 11, mon: "tetsu".into() });
+    for who in 0..3 {
+        g.party[who].equip = Default::default();
+        g.party[who].str_ = g.party[who].str_.max(1);
+    }
+    let mut b = Battle::new(&g, &[Source::Roamer(0)]);
+    let hp: Vec<i32> = g.party.iter().map(|m| m.hp_max).collect();
+    for m in g.party.iter_mut() {
+        m.hp = 9999;
+        m.hp_max = 9999;
+    }
+    let _ = hp;
+    let msgs = b.test_elem_all(&mut g, &[0], "テツジン", "きょうれつなひかり", 45, 2);
+    let dmg: i32 = 9999 - g.party[0].hp;
+    assert!((38..=45).contains(&dmg), "{} {:?}", dmg, msgs);
+}

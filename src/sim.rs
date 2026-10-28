@@ -2543,7 +2543,7 @@ impl Battle {
             _ if sealed => {}
             "dino" => {
                 if g.rng.chance(30) {
-                    return self.elem_all(g, &alive, name, "ようがんこうげき", 26, 0, false);
+                    return self.elem_all(g, &alive, name, "ようがんこうげき", 40, 0, false);
                 }
                 if g.rng.chance(25) {
                     return self.elem_all(g, &alive, name, "のしかかり", atk * 3 / 5, 3, true);
@@ -2551,12 +2551,12 @@ impl Battle {
             }
             "sorcerer" => {
                 if g.rng.chance(40) {
-                    return self.elem_all(g, &alive, name, "こおりのつえ", 28, 1, false);
+                    return self.elem_all(g, &alive, name, "こおりのつえ", 42, 1, false);
                 }
             }
             "tetsu" => {
                 if g.rng.chance(30) {
-                    return self.elem_all(g, &alive, name, "きょうれつなひかり", 24, 2, false);
+                    return self.elem_all(g, &alive, name, "きょうれつなひかり", 45, 2, false);
                 }
                 if g.rng.chance(20) {
                     let mut dmg = (atk * 3 / 2 - g.party[t].def()).max(1);
