@@ -278,7 +278,11 @@ pub fn equip_effects(name: &str) -> String {
         v.push(format!("{}属性(弱点に2倍)", elem(fx.element)));
     }
     if fx.breath > 0 {
-        v.push(format!("{}のいぶき{}%", elem(fx.breath_elem), fx.breath));
+        if fx.breath_elem == 3 {
+            v.push(format!("かまいたち{}%(敵全員)", fx.breath));
+        } else {
+            v.push(format!("{}のいぶき{}%", elem(fx.breath_elem), fx.breath));
+        }
     }
     if fx.seal > 0 {
         v.push(format!("封印{}%", fx.seal));
@@ -309,6 +313,15 @@ pub fn equip_effects(name: &str) -> String {
     }
     if slay_mult(name) > 1 {
         v.push(format!("オバケ・骨に{}倍", slay_mult(name)));
+    }
+    if fx.follow_all {
+        v.push("敵が残れば 更に全体攻撃".to_string());
+    }
+    if fx.weak_vs_water {
+        v.push("水・氷の魔物には 効果小".to_string());
+    }
+    if male_banned(name) {
+        v.push("男性は そうびできない".to_string());
     }
     if atk_bonus(name) > 0 {
         v.push(format!("攻撃力+{}", atk_bonus(name)));

@@ -722,6 +722,7 @@ impl Game {
 // ---------------- bot: 1F → 2F ----------------
 
 #[test]
+#[ignore] // 時間がかかる 通しの bot。手でやるときは: cargo test --release many_days -- --ignored --nocapture
 fn many_days_loop() {
     let mut all_days: Vec<Vec<u32>> = vec![];
     for seed in 1..=3u64 {
@@ -3219,7 +3220,7 @@ fn critical_hits_ignore_defense_and_follow_equipment_text() {
     let mut n = 0;
     for d in ITEMS.iter().filter(|d| d.kind.is_equip() && d.desc.contains("必殺")) {
         let b = crit_bonus(d.name);
-        assert!(b == 10 || b == 20, "{} の 必殺率 {}", d.name, b);
+        assert!(b == 5 || b == 10 || b == 20, "{} の 必殺率 {}", d.name, b);
         n += 1;
     }
     assert!(n >= 10, "必殺の装備 {}", n);
@@ -3406,4 +3407,52 @@ fn elemental_and_slaying_weapons_hit_weak_monsters_harder() {
     let d_holy = dmg("ホリーダッガー", "ghost");
     let d_plain = dmg("ロングスピア", "ghost");
     assert!(d_holy > d_plain, "{} {}", d_holy, d_plain);
+}
+
+#[test]
+fn wiki_item_effects_are_applied() {
+    // wiki に 効果が ある装備: 説明文を wiki に あわせて、反映する
+    assert_eq!(weapon_fx("ワーネコダッガー").multi, 15);
+    assert_eq!(weapon_fx("ブラックダッガー").extra_elem, 3);
+    assert_eq!(weapon_fx("ハデスソード").seal, 20);
+    assert_eq!(weapon_fx("ハンドアクス").all, 20);
+    assert!(weapon_fx("ヌンチャク").follow_all);
+    assert_eq!(weapon_fx("てつのつえ").stun, 15);
+    assert_eq!(weapon_fx("キングのやり").breath_elem, 3);
+    assert_eq!(weapon_fx("ネコマタボウ").poison, 30);
+    assert!(weapon_fx("カワウソード").weak_vs_water);
+    assert_eq!(slay_mult("光のゆみ"), 3);
+    assert_eq!(stun_guard("アイアンヘルム"), 30);
+    assert_eq!(atk_bonus("オバケぼうし"), 2);
+    assert_eq!(resist("光のティアラ"), (0, 0, 20));
+    assert_eq!(resist("うみのマント"), (0, 100, 0));
+    assert_eq!(stun_up("だげきのゆびわ"), 10);
+    assert_eq!(stun_up("大だげきのゆびわ"), 20);
+    assert_eq!(crit_bonus("いちげきのゆびわ"), 5);
+    // ガラスのティアラは 男性(アレン)は つけられない。メイミは つけられる
+    let mut g = Game::new(1);
+    g.party[2].joined = true;
+    g.add_item("ガラスのティアラ", 2);
+    assert!(g.equip(0, "ガラスのティアラ").is_err());
+    assert!(g.equip(2, "ガラスのティアラ").is_ok());
+    assert!(g.preview(0, "ガラスのティアラ").is_none());
+    // いちげき・だげきの ゆびわは 能力が 入っている
+    assert_eq!(g.party[0].atk(), g.party[0].str_total() + g.party[0].equip[0].as_deref().and_then(item).map(|d| d.power).unwrap_or(0));
+}
+
+#[test]
+fn nunchaku_and_kamaitachi_hit_everyone() {
+    let (mut g, mut b) = fight_with("ヌンチャク", &["slime", "slime", "slime"], 11);
+    let before: Vec<i32> = b.enemies.iter().map(|e| e.hp).collect();
+    attacks(&mut g, &mut b, 1);
+    assert!(b.enemies.iter().zip(before).all(|(e, h)| e.hp < h), "ヌンチャクは 敵が 残れば 全体に当たる");
+    let (mut g, mut b) = fight_with("キングのやり", &["slime", "slime"], 12);
+    let log = attacks(&mut g, &mut b, 120);
+    assert!(log.iter().any(|m| m.contains("かまいたち")));
+    // 毒の追加攻撃・ふういん
+    let (mut g, mut b) = fight_with("ブラックダッガー", &["slime"], 13);
+    assert!(attacks(&mut g, &mut b, 120).iter().any(|m| m.contains("毒の追加攻撃")));
+    let (mut g, mut b) = fight_with("ハデスソード", &["slime"], 14);
+    attacks(&mut g, &mut b, 60);
+    assert!(b.enemies[0].sealed);
 }

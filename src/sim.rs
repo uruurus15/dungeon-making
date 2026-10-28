@@ -1851,7 +1851,7 @@ impl Game {
                 continue;
             }
             let cur = self.party[who].equip[slot].as_deref().and_then(item).map(score).unwrap_or(-1);
-            let best = self.owned_defs().into_iter().filter(|d| d.kind.slot() == Some(slot)).max_by_key(|d| score(d));
+            let best = self.owned_defs().into_iter().filter(|d| d.kind.slot() == Some(slot) && !(who == 0 && male_banned(d.name))).max_by_key(|d| score(d));
             if let Some(d) = best {
                 if score(d) > cur && self.equip(who, d.name).is_ok() {
                     changed += 1;
@@ -1902,7 +1902,7 @@ impl Game {
         let d = item(name)?;
         let slot = d.kind.slot()?;
         let m = &self.party[who];
-        if !m.can_wear(slot) {
+        if !m.can_wear(slot) || (who == 0 && male_banned(name)) {
             return None;
         }
         let mut n = m.clone();
@@ -1913,6 +1913,9 @@ impl Game {
     pub fn equip(&mut self, who: usize, name: &str) -> Result<(), String> {
         let d = item(name).ok_or("そんな装備はない")?;
         let slot = d.kind.slot().ok_or("装備できない")?;
+        if who == 0 && male_banned(name) {
+            return Err("男性は そうびできない".to_string());
+        }
         if !self.party[who].can_wear(slot) {
             return Err(if self.party[who].is_slime { "ものまねした部分に 合わないから そうびできない".to_string() } else { "そうびできない".to_string() });
         }
@@ -2952,7 +2955,11 @@ impl Battle {
             let crit = g.rng.chance(crit_pct);
             // ひっさつは 相手の防御力を 無視する(攻撃力そのままの 2倍)
             let raw = if crit { (atk + rnd).max(1) * CRIT_MULT } else { (atk - self.enemies[k].defense() + rnd).max(1) };
-            let dmg = raw * self.weak_mult(k, elem, slay);
+            let mut dmg = raw * self.weak_mult(k, elem, slay);
+            if fx.weak_vs_water && is_water(self.enemies[k].def.id) {
+                // 水・氷の魔物には 効果小
+                dmg = (dmg * 7 / 10).max(1);
+            }
             let head = if all && targets.len() > 1 { String::new() } else { format!("{} の こうげき! ", name) };
             if crit {
                 msgs.push(format!("{}ひっさつの一撃! {} に {} のダメージ!", head, en, dmg));
@@ -2973,6 +2980,21 @@ impl Battle {
             if self.enemies[t].hp <= 0 {
                 msgs.push(format!("{} を たおした!", en));
             }
+        }
+        // ---- ヌンチャク: 敵が 生き残っていたら 更に 全体攻撃 ----
+        if fx.follow_all && self.enemies[t].hp > 0 {
+            msgs.push("つづけて ぜんたいを なぎはらった!".to_string());
+            for k in self.alive_enemies() {
+                let d2 = ((atk - self.enemies[k].defense() + g.rng.range(-1, 1)).max(1)) * self.weak_mult(k, elem, slay);
+                self.hit_enemy(k, d2);
+                msgs.push(format!("{} に {} のダメージ!", self.enemies[k].def.name, d2));
+                if self.enemies[k].hp <= 0 {
+                    msgs.push(format!("{} を たおした!", self.enemies[k].def.name));
+                }
+            }
+        }
+        if self.enemies[t].hp <= 0 && self.alive_enemies().is_empty() {
+            return msgs;
         }
         // ---- 追加攻撃(魔法。かしこさで 強くなる) ----
         if fx.extra > 0 && self.enemies[t].hp > 0 && g.rng.chance(fx.extra) {
@@ -2998,12 +3020,20 @@ impl Battle {
         }
         // ---- はき出す(敵ぜんいんに 魔法のダメージ) ----
         if fx.breath > 0 && g.rng.chance(fx.breath) && !self.alive_enemies().is_empty() {
-            let (label, e) = if fx.breath_elem == 1 { ("炎", 1u8) } else { ("ふぶき", 2u8) };
-            msgs.push(format!("{} が 敵ぜんいんに ふきつけた!", label));
+            let (label, e) = match fx.breath_elem {
+                1 => ("炎", 1u8),
+                3 => ("かまいたち", 3u8),
+                _ => ("ふぶき", 2u8),
+            };
+            msgs.push(format!("{} が 敵ぜんいんに おそいかかった!", label));
             for k in self.alive_enemies() {
                 let def = self.enemies[k].defense();
                 let rnd = g.rng.range(0, 3);
-                let base = if e == 1 { 2 + wis * 3 / 5 + rnd - def / 2 } else { 4 + wis * 9 / 10 + rnd - def / 2 };
+                let base = match e {
+                    1 => 2 + wis * 3 / 5 + rnd - def / 2,
+                    3 => atk * 6 / 10 + rnd - def,
+                    _ => 4 + wis * 9 / 10 + rnd - def / 2,
+                };
                 let d2 = base.max(1) * self.weak_mult(k, e, 1);
                 self.hit_enemy(k, d2);
                 msgs.push(format!("{} に {} のダメージ!", self.enemies[k].def.name, d2));

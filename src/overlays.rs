@@ -267,7 +267,7 @@ impl App {
                         }
                         MenuEv::Confirm(i) => {
                             let mut c: Vec<Option<String>> = vec![None];
-                            for d in self.g.owned_defs().into_iter().filter(|d| d.kind.slot() == Some(i)) {
+                            for d in self.g.owned_defs().into_iter().filter(|d| d.kind.slot() == Some(i) && !(*who == 0 && male_banned(d.name))) {
                                 c.push(Some(d.name.to_string()));
                             }
                             *sub = Some((i, ListMenu::new(), c));
