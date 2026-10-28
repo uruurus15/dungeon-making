@@ -200,7 +200,7 @@ fn cell(d: &Dungeon, x: i32, y: i32) -> C {
     let (ux, uy) = (x as usize, y as usize);
     if let Some(i) = d.room_at(ux, uy) {
         let r = &d.rooms[i];
-        if !r.open4 {
+        if !r.walk_in() {
             return C::Chamber(i, r.slot_at(ux, uy).unwrap_or(0));
         }
     }
@@ -215,7 +215,7 @@ fn cell(d: &Dungeon, x: i32, y: i32) -> C {
 fn passable(d: &Dungeon, a: (i32, i32), b: (i32, i32)) -> bool {
     match (cell(d, a.0, a.1), cell(d, b.0, b.1)) {
         (C::Wall(_), _) | (_, C::Wall(_)) => false,
-        (C::Open, C::Open) => true,
+        (C::Open, C::Open) => d.can_move((a.0 as usize, a.1 as usize), (b.0 as usize, b.1 as usize)),
         (C::Chamber(i, _), C::Chamber(j, _)) => i == j,
         (C::Chamber(i, _), C::Open) => door_pair(d, i, a, b),
         (C::Open, C::Chamber(i, _)) => door_pair(d, i, b, a),

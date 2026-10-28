@@ -122,6 +122,10 @@ impl Room {
     pub fn alive(&self) -> usize {
         self.mons.iter().filter(|m| m.is_some()).count()
     }
+    /// 中に 入って 歩ける部屋か(4方向の部屋と、入口が1つでも 3x3 の部屋)
+    pub fn walk_in(&self) -> bool {
+        self.open4 || self.w > 1
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -288,8 +292,27 @@ impl Dungeon {
         }
         match self.room_at(x, y) {
             None => true,
-            Some(i) => self.rooms[i].open4,
+            Some(i) => self.rooms[i].walk_in(),
         }
+    }
+    /// となりあう 2マスの 行き来(入口が1つの部屋は、入口のマス ↔ 入口の前の通路 でしか 出入りできない)
+    pub fn can_move(&self, a: (usize, usize), b: (usize, usize)) -> bool {
+        if !self.walkable(a.0, a.1) || !self.walkable(b.0, b.1) {
+            return false;
+        }
+        let (ra, rb) = (self.room_at(a.0, a.1), self.room_at(b.0, b.1));
+        if ra == rb {
+            return true;
+        }
+        for (r, inside, outside) in [(ra, a, b), (rb, b, a)] {
+            if let Some(i) = r {
+                let r = &self.rooms[i];
+                if !r.open4 && !(inside == r.front && r.stand() == Some(outside)) {
+                    return false;
+                }
+            }
+        }
+        true
     }
     pub fn floor_count(&self) -> usize {
         self.tiles.iter().filter(|t| matches!(t, Tile::Floor)).count()
@@ -304,7 +327,7 @@ impl Dungeon {
             }
             for d in Dir::ALL {
                 if let Some(n) = pos_add(p, d) {
-                    if self.walkable(n.0, n.1) && !seen.contains(&n) {
+                    if self.can_move(p, n) && !seen.contains(&n) {
                         q.push(n);
                     }
                 }
@@ -1416,7 +1439,7 @@ impl Game {
     pub fn step(&mut self, dir: Dir) -> StepResult {
         self.facing = dir;
         let Some((x, y)) = pos_add(self.pos, dir) else { return StepResult::Blocked };
-        if !self.dungeon.walkable(x, y) {
+        if !self.dungeon.can_move(self.pos, (x, y)) {
             return StepResult::Blocked;
         }
         self.pos = (x, y);
@@ -1443,9 +1466,9 @@ impl Game {
                 }
             }
         }
-        // 1方向の部屋: 入口の前に立つと魔物が出てくる
+        // 1マスで 入口が1つの部屋: 入口の前に立つと魔物が出てくる
         for (i, r) in self.dungeon.rooms.iter().enumerate() {
-            if r.open4 || r.stand() != Some((x, y)) {
+            if r.walk_in() || r.stand() != Some((x, y)) {
                 continue;
             }
             for (k, m) in r.mons.iter().enumerate() {
@@ -1454,10 +1477,10 @@ impl Game {
                 }
             }
         }
-        // 4方向の部屋: 上に乗るか、となりに立つと魔物が出てくる
+        // 歩いて入れる部屋: 上に乗るか、となりに立つと魔物が出てくる(入口が1つの部屋は 壁ごしには ならない)
         let mut near: Vec<(usize, usize)> = vec![];
         for (i, r) in self.dungeon.rooms.iter().enumerate() {
-            if !r.open4 {
+            if !r.walk_in() {
                 continue;
             }
             if let Some(k) = r.slot_at(x, y) {
@@ -1468,7 +1491,7 @@ impl Game {
             for d in Dir::ALL {
                 if let Some(p) = pos_add((x, y), d) {
                     if let Some(k) = r.slot_at(p.0, p.1) {
-                        if r.mons[k].is_some() {
+                        if r.mons[k].is_some() && self.dungeon.can_move((x, y), p) {
                             near.push((i, k));
                         }
                     }

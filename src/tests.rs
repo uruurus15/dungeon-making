@@ -83,7 +83,7 @@ fn bfs(g: &Game, from: (usize, usize), goal: (usize, usize)) -> Option<Vec<Dir>>
         }
         for d in Dir::ALL {
             if let Some(n) = pos_add(p, d) {
-                if g.dungeon.walkable(n.0, n.1) && !seen.contains(&n) {
+                if g.dungeon.can_move(p, n) && !seen.contains(&n) {
                     seen.insert(n);
                     prev.insert(n, (p, d));
                     q.push_back(n);
@@ -262,7 +262,7 @@ fn hunt(g: &mut Game) {
             if m.is_none() {
                 continue;
             }
-            if r.open4 {
+            if r.walk_in() {
                 spots.push((r.x + k % r.w, r.y + k / r.w));
             } else if let Some(s) = r.stand() {
                 spots.push(s);
@@ -313,9 +313,14 @@ fn boss_attempt(g: &mut Game) -> Option<Outcome> {
                 let t = g.dungeon.tile(n.0, n.1);
                 let free = match g.dungeon.room_at(n.0, n.1) {
                     None => true,
-                    Some(i) => g.dungeon.rooms[i].open4,
+                    Some(i) => g.dungeon.rooms[i].walk_in() && g.dungeon.can_move(p, n),
                 };
-                let ok = free && (t == Tile::Floor || t == Tile::Portal || (t == Tile::Rock && g.diggable(n.0, n.1)));
+                // 入口が1つの部屋の中から 壁を掘って 外へは 出られない
+                let leave_ok = match g.dungeon.room_at(p.0, p.1) {
+                    Some(i) => g.dungeon.rooms[i].open4 || g.dungeon.room_at(n.0, n.1) == Some(i) || g.dungeon.can_move(p, n),
+                    None => true,
+                };
+                let ok = free && leave_ok && (t == Tile::Floor || t == Tile::Portal || (t == Tile::Rock && g.diggable(n.0, n.1)));
                 if ok {
                     seen.insert(n);
                     prev.insert(n, p);
@@ -1126,18 +1131,31 @@ fn dojo_one_door_big_room() {
     let r = g.dungeon.rooms[0].clone();
     assert!(!r.open4 && r.w == 3 && r.h == 3);
     assert_eq!(r.stand(), Some((8, 9)), "入口の前のマスは 回廊側");
-    assert!(!g.dungeon.walkable(6, 9), "1方向の部屋の中は歩けない");
+    assert!(g.dungeon.walkable(6, 9), "入口が1つでも 3x3 の部屋は 中を歩ける");
+    assert!(g.dungeon.can_move((8, 9), (7, 9)) && g.dungeon.can_move((7, 9), (6, 9)));
+    assert!(!g.dungeon.can_move((8, 10), (7, 10)), "入口以外の 壁からは 入れない");
     // 夜: 4匹まですみつく(階段から遠いので)
     g.sleep();
     let n = g.dungeon.rooms[0].alive();
     assert!((1..=4).contains(&n), "どうじょうの魔物の数 {}", n);
-    // 入口の前に立つと、中の魔物が最大3匹出てくる
+    // 壁ごしの通路(入口以外)に立っても 戦闘にならない
+    g.dungeon.rooms[0].mons = vec![None; 9];
+    g.dungeon.rooms[0].mons[8] = Some("gob".into());
     g.pos = (8, 10);
+    assert!(!matches!(g.check_encounter(), StepResult::Battle(_)), "壁ごしでは 戦わない");
+    // 入口のマス(7,9)の魔物は 入口の前に立つと 出てくる
+    g.dungeon.rooms[0].mons[5] = Some("gob".into());
     match g.step(Dir::Up) {
-        StepResult::Battle(s) => {
-            assert!(!s.is_empty() && s.len() <= 3);
-            assert!(s.iter().all(|x| matches!(x, Source::Room(0, _))));
-        }
+        StepResult::Battle(s) => assert_eq!(s, vec![Source::Room(0, 5)]),
+        o => panic!("{:?}", o),
+    }
+    // 倒したあと 中に入って 奥の魔物の となりに立つと 戦う
+    g.dungeon.rooms[0].mons = vec![None; 9];
+    g.dungeon.rooms[0].mons[6] = Some("gob".into());
+    assert!(matches!(g.step(Dir::Left), StepResult::Moved));
+    assert!(matches!(g.step(Dir::Left), StepResult::Moved), "中を歩ける");
+    match g.step(Dir::Left) {
+        StepResult::Battle(s) => assert_eq!(s, vec![Source::Room(0, 6)]),
         o => panic!("{:?}", o),
     }
 }
