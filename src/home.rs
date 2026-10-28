@@ -18,12 +18,21 @@ pub struct HomeSt {
     pub page: HomePage,
     pub menu: ListMenu,
     pub msg: String,
+    /// 料理の一覧: false=いちらん true=お気に入り(おぼえておく)
+    pub fav_tab: bool,
+}
+
+const TAB_NAMES: [&str; 2] = ["いちらん", "★ お気に入り"];
+
+fn meal_tab_rect(i: usize) -> Rect {
+    let w = (LW - 20.0) / 2.0;
+    Rect::new(10.0 + w * i as f32, SH + 40.0, w - 3.0, 30.0)
 }
 
 impl HomeSt {
     pub fn new(g: &crate::sim::Game) -> HomeSt {
         let mq = crate::quest::main_quest(g);
-        HomeSt { page: HomePage::Main, menu: ListMenu::new(), msg: format!("アレン「ただいま! ごはんを 食べて、ゆっくり 休もう。」\n▶ {}", mq.title) }
+        HomeSt { page: HomePage::Main, fav_tab: false, menu: ListMenu::new(), msg: format!("アレン「ただいま! ごはんを 食べて、ゆっくり 休もう。」\n▶ {}", mq.title) }
     }
 }
 
@@ -81,42 +90,98 @@ impl App {
             }
             HomePage::Meal => {
                 ui.text("りょうり", 18.0, SH + 8.0, 24.0, CREAM);
-                let mut rows = vec![Row::new("おまかせ(まだ食べてない人みんな)").right("1回で全員").enabled(!self.g.ate.iter().all(|a| *a))];
+                ui.text("Q・E:タブ  V:お気に入りに いれる・はずす", 120.0, SH + 12.0, 16.0, rgb(255, 230, 140));
+                // ---- タブ(Q・E / ←→ / クリック) ----
+                let mut to = st.fav_tab;
+                if self.inp.l || self.inp.left {
+                    to = !st.fav_tab;
+                }
+                if self.inp.r || self.inp.right {
+                    to = !st.fav_tab;
+                }
+                if self.inp.click {
+                    if let Some(i) = (0..2).find(|&i| meal_tab_rect(i).contains(self.inp.mouse)) {
+                        to = i == 1;
+                    }
+                }
+                if to != st.fav_tab {
+                    st.fav_tab = to;
+                    st.menu = ListMenu::new();
+                    self.ui.audio.sfx("ok");
+                }
                 let order = recipe_order();
-                for r in order.iter().copied() {
+                let shown: Vec<&Recipe> = order.iter().copied().filter(|r| !st.fav_tab || self.g.fav_recipes.contains(r.name)).collect();
+                // ---- V: お気に入りの 入れ・はずし(おぼえている 料理だけ) ----
+                if self.inp.y && st.menu.cursor > 0 {
+                    if let Some(r) = shown.get(st.menu.cursor - 1) {
+                        if !self.g.recipes.contains(r.name) {
+                            st.msg = "アレン「まだ 作り方を 知らない 料理は お気に入りに できないよ。」".to_string();
+                        } else if self.g.fav_recipes.remove(r.name) {
+                            self.ui.audio.sfx("ok");
+                            st.msg = format!("アレン「{}を お気に入りから はずしたよ。」", r.name);
+                        } else {
+                            self.g.fav_recipes.insert(r.name.to_string());
+                            self.ui.audio.sfx("equip");
+                            st.msg = format!("アレン「{}を お気に入りに いれたよ。」", r.name);
+                        }
+                    }
+                }
+                let shown: Vec<&Recipe> = order.iter().copied().filter(|r| !st.fav_tab || self.g.fav_recipes.contains(r.name)).collect();
+                // 空きの タブ: 下の 見えないマスに カーソルが 残らないように
+                st.menu.cursor = st.menu.cursor.min(shown.len());
+                let mut rows = vec![Row::new("おまかせ(まだ食べてない人みんな)").right("1回で全員").enabled(!self.g.ate.iter().all(|a| *a))];
+                for r in shown.iter().copied() {
                     let known = self.g.recipes.contains(r.name);
                     let can = self.g.can_cook(r);
-                    let label = if known { r.name.to_string() } else { "？？？".to_string() };
-                    let right = if known { gain_text(r) } else { "".to_string() };
+                    let fav = self.g.fav_recipes.contains(r.name);
+                    let label = if known { format!("{}{}", if fav { "★" } else { "" }, r.name) } else { "？？？".to_string() };
+                    let right = if known { gain_short(r) } else { "".to_string() };
                     rows.push(Row::new(label).right(right).enabled(can));
                 }
-                let ev = st.menu.run(ui, &self.inp, &rows, Rect::new(10.0, SH + 40.0, LW - 20.0, 250.0), 44.0, 21.0, Style::Wood, true);
+                if shown.is_empty() {
+                    rows.push(Row::new("(お気に入りが ありません)").enabled(false));
+                }
+                // タブ
+                for (i, name) in TAB_NAMES.iter().enumerate() {
+                    let r = meal_tab_rect(i);
+                    let cur = (i == 1) == st.fav_tab;
+                    let hover = r.contains(self.inp.mouse);
+                    draw_rectangle(r.x, r.y, r.w, r.h, if cur { rgb(150, 100, 52) } else if hover { rgb(112, 76, 42) } else { rgb(84, 56, 32) });
+                    draw_rectangle_lines(r.x, r.y, r.w, r.h, if cur { 3.0 } else { 1.5 }, if cur { rgb(255, 230, 140) } else { rgb(190, 170, 120) });
+                    let n = if i == 1 { self.g.fav_recipes.len() } else { order.iter().filter(|r| self.g.recipes.contains(r.name)).count() };
+                    ui.text_center(&format!("{} {}", name, n), r.x + r.w / 2.0, r.y + 5.0, 18.0, if cur { rgb(255, 245, 200) } else { CREAM });
+                }
+                st.menu.no_page = true;
+                let ev = st.menu.run(ui, &self.inp, &rows, Rect::new(10.0, SH + 74.0, LW - 20.0, 220.0), 42.0, 21.0, Style::Wood, true);
                 // 材料の説明
                 msgbox(10.0, SH + 300.0, LW - 20.0, 118.0);
-                let order = recipe_order();
-                let r = order[st.menu.cursor.saturating_sub(1).min(order.len() - 1)];
+                let r = shown.get(st.menu.cursor.saturating_sub(1));
                 if st.menu.cursor == 0 {
                     ui.text_wrap("まだ食べていない人それぞれに、作れる中でいちばん伸びる料理を食べさせるよ。", 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
-                } else if self.g.recipes.contains(r.name) {
+                } else if let Some(r) = r.filter(|r| self.g.recipes.contains(r.name)) {
                     let needs: Vec<String> = r.needs.iter().map(|n| format!("{}({})", n, self.g.count(n))).collect();
                     ui.text_wrap(&format!("ざいりょう: {}", needs.join(" + ")), 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
                     ui.text(&format!("食べた人: {}", gain_text(r)), 26.0, SH + 372.0, 19.0, rgb(255, 230, 140));
-                } else {
+                } else if r.is_some() {
                     ui.text_wrap("魔法屋のおじさんに食材をみせると、新しい料理を教えてもらえるよ。", 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
+                } else {
+                    ui.text_wrap("「いちらん」で 料理に カーソルを あわせて V を おすと、ここに ならぶよ。", 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
                 }
                 match ev {
                     MenuEv::Confirm(0) => {
                         let msgs = self.g.auto_meals();
                         self.ui.audio.sfx("eat");
-                        st.msg = msgs.join("\n");
+                        st.msg = msgs.join("
+");
                         st.page = HomePage::Main;
                         st.menu = ListMenu::new();
                     }
                     MenuEv::Confirm(i) => {
-                        let i = i - 1;
-                        st.page = HomePage::Who(recipe_order()[i].name);
-                        st.menu = ListMenu::new();
-                        st.msg = "だれが 食べる?".to_string();
+                        if let Some(r) = shown.get(i - 1) {
+                            st.page = HomePage::Who(r.name);
+                            st.menu = ListMenu::new();
+                            st.msg = "だれが 食べる?".to_string();
+                        }
                     }
                     MenuEv::Cancel => {
                         st.page = HomePage::Main;
@@ -205,4 +270,10 @@ impl App {
 fn gain_text(r: &Recipe) -> String {
     let labels = ["HP", "MP", "つよさ", "すばやさ", "じょうぶさ", "かしこさ"];
     r.gain.iter().enumerate().filter(|(_, v)| **v != 0).map(|(i, v)| format!("{}+{}", labels[i], v)).collect::<Vec<_>>().join(" ")
+}
+
+/// 一覧用の みじかい 書き方(HP2 MP1 つよ2 すば1 じょ1 かし1)
+fn gain_short(r: &Recipe) -> String {
+    let labels = ["HP", "MP", "つよ", "すば", "じょ", "かし"];
+    r.gain.iter().enumerate().filter(|(_, v)| **v != 0).map(|(i, v)| format!("{}{}", labels[i], v)).collect::<Vec<_>>().join(" ")
 }

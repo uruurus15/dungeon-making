@@ -436,6 +436,22 @@ impl App {
                 self.g.facing = match v.get(3).copied().unwrap_or("u") { "d" => sim::Dir::Down, "l" => sim::Dir::Left, "r" => sim::Dir::Right, _ => sim::Dir::Up };
                 self.scr = Scr::Dungeon(dungeon::DunSt::new());
             }
+            n if n.starts_with("meal_") => {
+                // meal_0=いちらん meal_1=お気に入り(確認用: 料理を いくつか おぼえて 一部を お気に入りに)
+                self.debug = true;
+                self.g.preset(24);
+                for (i, r) in data::recipe_order().into_iter().enumerate().take(14) {
+                    self.g.recipes.insert(r.name.to_string());
+                    if i % 4 == 1 {
+                        self.g.fav_recipes.insert(r.name.to_string());
+                    }
+                }
+                let mut st = home::HomeSt::new(&self.g);
+                st.page = home::HomePage::Meal;
+                st.fav_tab = n == "meal_1";
+                st.msg = "アレン「なにを 作ろうかな。」".to_string();
+                self.scr = Scr::Home(st);
+            }
             "options" => {
                 self.debug = true;
                 self.g.preset(3);

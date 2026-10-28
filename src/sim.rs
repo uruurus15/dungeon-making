@@ -663,6 +663,9 @@ pub struct Game {
     /// 戦闘のメッセージを、決定キー/クリックで進める(false なら時間で自動で流れる)
     #[serde(default = "default_manual_log")]
     pub manual_log: bool,
+    /// お気に入りの料理(ごはんの「お気に入り」タブに出る)
+    #[serde(default)]
+    pub fav_recipes: BTreeSet<String>,
     /// 歩く速さ(長押し)。0=ふつう(いちばん速い) 1=すこしゆっくり 2=ゆっくり
     #[serde(default)]
     pub walk_speed: u8,
@@ -801,6 +804,7 @@ impl Game {
             visited_magic: false,
             manual_log: true,
             walk_speed: 0,
+            fav_recipes: BTreeSet::new(),
             view_mode: 0,
             map3d: true,
             sound_mode: 0,
