@@ -491,8 +491,30 @@ impl Member {
             _ => m(1).map(|x| x.arm_ring).unwrap_or(false),
         }
     }
+    /// ふらつきにくさ(%)。装備の「ふらつき軽減」の 合計(最大90)
+    pub fn stun_guard(&self) -> i32 {
+        self.equip.iter().flatten().map(|n| stun_guard(n)).sum::<i32>().min(90)
+    }
+    /// 武器の ふらつかせる確率(%): 武器 + ゆびわの「ふらつき効果UP」(最大60)
+    pub fn stun_chance(&self) -> u32 {
+        let w = self.equip[0].as_deref().map(|n| weapon_fx(n).stun as i32).unwrap_or(0);
+        let up: i32 = self.equip.iter().flatten().map(|n| stun_up(n)).sum();
+        (w + up).min(60) as u32
+    }
+    /// 武器の属性(1=炎 2=氷 3=光)。武器になければ ゆびわの「武器に炎の力」
+    pub fn weapon_element(&self) -> u8 {
+        let w = self.equip[0].as_deref().map(|n| weapon_fx(n).element).unwrap_or(0);
+        if w != 0 {
+            return w;
+        }
+        self.equip.iter().flatten().map(|n| ring_element(n)).find(|&e| e != 0).unwrap_or(0)
+    }
+    /// アンデッドへの ダメージ倍率(ホリー系の武器・よみのゆびわ)
+    pub fn slay(&self) -> i32 {
+        self.equip.iter().flatten().map(|n| slay_mult(n)).max().unwrap_or(1)
+    }
     pub fn atk(&self) -> i32 {
-        let base = self.str_total() + self.equipped().filter(|i| i.kind == Kind::Weapon).map(|i| i.power).sum::<i32>();
+        let base = self.str_total() + self.equipped().filter(|i| i.kind == Kind::Weapon).map(|i| i.power).sum::<i32>() + self.equip.iter().flatten().map(|n| atk_bonus(n)).sum::<i32>();
         if self.strong {
             base * 3 / 2
         } else {
@@ -560,6 +582,8 @@ pub struct Enemy {
     pub fled: bool,
     /// ふういんされている(魔法・特殊攻撃が つかえない)
     pub sealed: bool,
+    /// どく(毎ターン HPが 減る)
+    pub poison: bool,
     /// 強さ(%)。まほうじんから出た魔物は 強い
     pub boost: i32,
     pub src: Source,
@@ -2165,7 +2189,7 @@ impl Battle {
             for _ in 0..g.miasma_count() {
                 boost = (boost * 12 + 9) / 10;
             }
-            enemies.push(Enemy { def, hp: def.hp * boost / 100, sleep, stun: false, drunk: kind == "さかば", fled: false, sealed: kind == "けっかいのへや", boost, src: *s });
+            enemies.push(Enemy { def, hp: def.hp * boost / 100, sleep, stun: false, drunk: kind == "さかば", fled: false, sealed: kind == "けっかいのへや", poison: false, boost, src: *s });
         }
         // 行動順は戦闘ごとに固定(すばやさ順)
         let mut order: Vec<(i32, Actor)> = vec![];
@@ -2456,17 +2480,33 @@ impl Battle {
                     if self.enemies[j].hp <= 0 || self.enemies[j].fled {
                         continue;
                     }
+                    // どく: 行動の前に ダメージ(倒れたら そこで おわり)
+                    let mut pre: Vec<String> = vec![];
+                    if self.enemies[j].poison {
+                        let mx = self.enemies[j].max_hp();
+                        let d = if self.enemies[j].def.boss { (mx / 60).max(2) } else { (mx / 12).max(2) };
+                        self.enemies[j].hp = (self.enemies[j].hp - d).max(0);
+                        pre.push(format!("{} は どくで {} のダメージ!", self.enemies[j].def.name, d));
+                        if self.enemies[j].hp <= 0 {
+                            pre.push(format!("{} を たおした!", self.enemies[j].def.name));
+                            self.check_end(g);
+                            return Advance::Msgs(pre);
+                        }
+                    }
                     if self.enemies[j].sleep > 0 {
                         self.enemies[j].sleep -= 1;
-                        return Advance::Msgs(vec![format!("{} は ねむっている", self.enemies[j].def.name)]);
+                        pre.push(format!("{} は ねむっている", self.enemies[j].def.name));
+                        return Advance::Msgs(pre);
                     }
                     if self.enemies[j].stun {
                         self.enemies[j].stun = false;
-                        return Advance::Msgs(vec![format!("{} は ふらついている", self.enemies[j].def.name)]);
+                        pre.push(format!("{} は ふらついている", self.enemies[j].def.name));
+                        return Advance::Msgs(pre);
                     }
                     if self.enemies[j].drunk && g.rng.chance(40) {
                         self.enemies[j].sleep = 1;
-                        return Advance::Msgs(vec![format!("{} は よっぱらって ねてしまった", self.enemies[j].def.name)]);
+                        pre.push(format!("{} は よっぱらって ねてしまった", self.enemies[j].def.name));
+                        return Advance::Msgs(pre);
                     }
                     let hps: Vec<i32> = g.party.iter().map(|m| m.hp).collect();
                     let msgs = self.foe_act(g, j);
@@ -2478,10 +2518,21 @@ impl Battle {
                         }
                     }
                     self.check_end(g);
-                    return Advance::Msgs(msgs);
+                    pre.extend(msgs);
+                    return Advance::Msgs(pre);
                 }
             }
         }
+    }
+
+    /// 味方を ふらつかせる(装備の「ふらつき軽減」で ふせぐことがある)。ふらついたら true
+    fn stun_party(&mut self, g: &mut Game, i: usize) -> bool {
+        let guard = g.party[i].stun_guard();
+        if g.rng.chance(guard.max(0) as u32) {
+            return false;
+        }
+        g.party[i].stun = true;
+        true
     }
 
     /// 全員への属性攻撃(0=炎 1=氷 2=光)。耐性で減る。stun なら ふらつく
@@ -2503,7 +2554,7 @@ impl Battle {
             msgs.push(format!("{} に {} のダメージ!", g.party[i].name, dmg));
             if g.party[i].alive() {
                 if stun {
-                    g.party[i].stun = true;
+                    self.stun_party(g, i);
                 }
             } else {
                 msgs.push(format!("{} は うごけなくなった!", g.party[i].name));
@@ -2527,7 +2578,7 @@ impl Battle {
         let mut m = vec![format!("{} の {}! {} に {} のダメージ!", who, skill, g.party[t].name, dmg)];
         if g.party[t].alive() {
             if stun {
-                g.party[t].stun = true;
+                self.stun_party(g, t);
             }
         } else {
             m.push(format!("{} は うごけなくなった!", g.party[t].name));
@@ -2639,7 +2690,7 @@ impl Battle {
                     g.party[t].hp = (g.party[t].hp - dmg).max(0);
                     let mut m = vec![format!("{} の きょうれつないちげき! {} に {} のダメージ!", name, g.party[t].name, dmg)];
                     if g.party[t].alive() {
-                        g.party[t].stun = true;
+                        self.stun_party(g, t);
                     } else {
                         m.push(format!("{} は うごけなくなった!", g.party[t].name));
                     }
@@ -2677,7 +2728,7 @@ impl Battle {
                     g.party[t].hp = (g.party[t].hp - dmg).max(0);
                     let mut m = vec![format!("{} の しっぽなぎはらい! {} に {} のダメージ!", name, g.party[t].name, dmg)];
                     if g.party[t].alive() {
-                        g.party[t].stun = true;
+                        self.stun_party(g, t);
                     } else {
                         m.push(format!("{} は うごけなくなった!", g.party[t].name));
                     }
@@ -2813,7 +2864,7 @@ impl Battle {
                 g.party[i].hp = (g.party[i].hp - dmg).max(0);
                 msgs.push(format!("{} に {} のダメージ!", g.party[i].name, dmg));
                 if g.party[i].alive() {
-                    g.party[i].stun = true;
+                    self.stun_party(g, i);
                 } else {
                     msgs.push(format!("{} は うごけなくなった!", g.party[i].name));
                 }
@@ -2853,6 +2904,157 @@ impl Battle {
         }
         if !g.party[t].alive() {
             msgs.push(format!("{} は うごけなくなった!", g.party[t].name));
+        }
+        msgs
+    }
+
+    /// 敵1体への ダメージ倍率(弱点の属性は2倍、光は アンデッドに2倍、ホリー系は アンデッドに 大ダメージ)
+    fn weak_mult(&self, k: usize, elem: u8, slay: i32) -> i32 {
+        let e = &self.enemies[k];
+        let w = weak_to(e.def.id);
+        let mut m = 1;
+        if (elem == 1 && w == 1) || (elem == 2 && w == 2) || (elem == 3 && e.def.undead) {
+            m *= 2;
+        }
+        if e.def.undead && slay > 1 {
+            m = m.max(slay);
+        }
+        m
+    }
+
+    /// 通常攻撃(武器の 特殊効果つき)。全体・連続・追加攻撃・ふらつき・封印・どく など
+    fn weapon_attack(&mut self, g: &mut Game, who: usize, t: usize) -> Vec<String> {
+        let mut msgs: Vec<String> = vec![];
+        let name = g.party[who].name.clone();
+        let wname = g.party[who].equip[0].clone();
+        let fx = wname.as_deref().map(weapon_fx).unwrap_or_default();
+        let mut atk = g.party[who].atk();
+        if wname.as_deref().map(base_name) == Some("でたらめなけん") {
+            // でたらめなけん: ダメージが 0〜3倍で ばらばら
+            atk = atk * g.rng.range(0, 31) / 10;
+        }
+        let elem = g.party[who].weapon_element();
+        let slay = g.party[who].slay();
+        let wis = g.party[who].wis_total();
+        let crit_pct = g.party[who].crit_pct();
+        // ---- 狙う相手(全体攻撃なら 敵ぜんいん) ----
+        let all = fx.all > 0 && g.rng.chance(fx.all);
+        let targets: Vec<usize> = if all { self.alive_enemies() } else { vec![t] };
+        if all && targets.len() > 1 {
+            msgs.push(format!("{} の こうげき! 敵ぜんいんを おそった!", name));
+        }
+        for &k in &targets {
+            if self.enemies[k].hp <= 0 {
+                continue;
+            }
+            let en = self.enemies[k].def.name;
+            let rnd = g.rng.range(-1, 1);
+            let crit = g.rng.chance(crit_pct);
+            // ひっさつは 相手の防御力を 無視する(攻撃力そのままの 2倍)
+            let raw = if crit { (atk + rnd).max(1) * CRIT_MULT } else { (atk - self.enemies[k].defense() + rnd).max(1) };
+            let dmg = raw * self.weak_mult(k, elem, slay);
+            let head = if all && targets.len() > 1 { String::new() } else { format!("{} の こうげき! ", name) };
+            if crit {
+                msgs.push(format!("{}ひっさつの一撃! {} に {} のダメージ!", head, en, dmg));
+            } else {
+                msgs.push(format!("{}{} に {} のダメージ!", head, en, dmg));
+            }
+            self.hit_enemy(k, dmg);
+            if self.enemies[k].hp <= 0 {
+                msgs.push(format!("{} を たおした!", en));
+            }
+        }
+        let en = self.enemies[t].def.name;
+        // ---- 連続攻撃(もう1回) ----
+        if fx.multi > 0 && self.enemies[t].hp > 0 && g.rng.chance(fx.multi) {
+            let d2 = ((atk - self.enemies[t].defense() + g.rng.range(-1, 1)).max(1)) * self.weak_mult(t, elem, slay);
+            self.hit_enemy(t, d2);
+            msgs.push(format!("れんぞくこうげき! {} に {} のダメージ!", en, d2));
+            if self.enemies[t].hp <= 0 {
+                msgs.push(format!("{} を たおした!", en));
+            }
+        }
+        // ---- 追加攻撃(魔法。かしこさで 強くなる) ----
+        if fx.extra > 0 && self.enemies[t].hp > 0 && g.rng.chance(fx.extra) {
+            let def = self.enemies[t].defense();
+            let rnd = g.rng.range(0, 3);
+            let (label, base) = match fx.extra_elem {
+                1 => ("炎", 4 + wis + rnd - def / 2),
+                2 if self.enemies[t].def.undead => ("光", (4 + wis) * 3 + rnd),
+                2 => ("光", (4 + wis) * 2 / 5 + rnd),
+                3 => ("毒", 3 + wis / 2 + rnd - def / 2),
+                _ => ("", 4 + wis + rnd - def / 2),
+            };
+            let d2 = base.max(1) * if fx.extra_elem == 1 { self.weak_mult(t, 1, 1) } else { 1 };
+            self.hit_enemy(t, d2);
+            let what = if label.is_empty() { "追加攻撃".to_string() } else { format!("{}の追加攻撃", label) };
+            msgs.push(format!("{}! {} に {} のダメージ!", what, en, d2));
+            if self.enemies[t].hp <= 0 {
+                msgs.push(format!("{} を たおした!", en));
+            } else if fx.extra_elem == 3 && !self.enemies[t].poison {
+                self.enemies[t].poison = true;
+                msgs.push(format!("{} は どくを うけた!", en));
+            }
+        }
+        // ---- はき出す(敵ぜんいんに 魔法のダメージ) ----
+        if fx.breath > 0 && g.rng.chance(fx.breath) && !self.alive_enemies().is_empty() {
+            let (label, e) = if fx.breath_elem == 1 { ("炎", 1u8) } else { ("ふぶき", 2u8) };
+            msgs.push(format!("{} が 敵ぜんいんに ふきつけた!", label));
+            for k in self.alive_enemies() {
+                let def = self.enemies[k].defense();
+                let rnd = g.rng.range(0, 3);
+                let base = if e == 1 { 2 + wis * 3 / 5 + rnd - def / 2 } else { 4 + wis * 9 / 10 + rnd - def / 2 };
+                let d2 = base.max(1) * self.weak_mult(k, e, 1);
+                self.hit_enemy(k, d2);
+                msgs.push(format!("{} に {} のダメージ!", self.enemies[k].def.name, d2));
+                if self.enemies[k].hp <= 0 {
+                    msgs.push(format!("{} を たおした!", self.enemies[k].def.name));
+                }
+            }
+        }
+        // ---- 状態を かえる(ダメージの あと。hit_enemy が ねむりを とくので 最後に) ----
+        if self.enemies[t].hp > 0 {
+            let boss = self.enemies[t].def.boss;
+            let sc = g.party[who].stun_chance();
+            if sc > 0 && g.rng.chance(if boss { sc / 2 } else { sc }) {
+                self.enemies[t].stun = true;
+                msgs.push(format!("{} は ふらついた!", en));
+            }
+            if fx.sleep > 0 && !boss && g.rng.chance(fx.sleep) {
+                self.enemies[t].sleep = 2;
+                msgs.push(format!("{} は ねむってしまった!", en));
+            }
+            if fx.seal > 0 && !self.enemies[t].sealed && g.rng.chance(if boss { fx.seal.min(10) } else { fx.seal }) {
+                self.enemies[t].sealed = true;
+                msgs.push(format!("{} は ふういんされた!", en));
+            }
+            if fx.poison > 0 && !self.enemies[t].poison && g.rng.chance(fx.poison) {
+                self.enemies[t].poison = true;
+                msgs.push(format!("{} は どくを うけた!", en));
+            }
+            if fx.hp1 > 0 && self.enemies[t].hp > 1 && g.rng.chance(if boss { 10 } else { fx.hp1 }) {
+                self.enemies[t].hp = 1;
+                msgs.push(format!("{} の HPが ぎりぎりまで へった!", en));
+            }
+        }
+        // ---- 味方の かいふく(たたいた 敵が 倒れると 出ない) ----
+        if fx.heal && self.enemies[t].hp > 0 {
+            if let Some(h) = (0..g.party.len()).filter(|&k| g.party[k].alive()).min_by_key(|&k| g.party[k].hp * 100 / g.party[k].hp_max.max(1)) {
+                let before = g.party[h].hp;
+                g.party[h].hp = (before + wis.max(1)).min(g.party[h].hp_max);
+                if g.party[h].hp > before {
+                    msgs.push(format!("つえの ちからで {} のHPが {} かいふく!", g.party[h].name, g.party[h].hp - before));
+                }
+            }
+        }
+        if fx.mp_heal > 0 && g.rng.chance(fx.mp_heal) {
+            if let Some(h) = (0..g.party.len()).filter(|&k| g.party[k].alive() && g.party[k].mp_max > 0).min_by_key(|&k| g.party[k].mp * 100 / g.party[k].mp_max.max(1)) {
+                let before = g.party[h].mp;
+                g.party[h].mp = (before + 2 + wis / 2).min(g.party[h].mp_max);
+                if g.party[h].mp > before {
+                    msgs.push(format!("ゆみの ちからで {} のMPが {} かいふく!", g.party[h].name, g.party[h].mp - before));
+                }
+            }
         }
         msgs
     }
@@ -2994,36 +3196,7 @@ impl Battle {
             Cmd::Nothing => {}
             Cmd::Attack(t) => {
                 let t = self.first_target(t);
-                let mut atk = g.party[who].atk();
-                if g.party[who].equip[0].as_deref().map(base_name) == Some("でたらめなけん") {
-                    // でたらめなけん: ダメージが 0〜3倍で ばらばら
-                    atk = atk * g.rng.range(0, 31) / 10;
-                }
-                let base = (atk - self.enemies[t].defense() + g.rng.range(-1, 1)).max(1);
-                let crit = g.rng.chance(g.party[who].crit_pct());
-                // ひっさつは 相手の防御力を 無視する(攻撃力そのままの 2倍)
-                let dmg = if crit { ((atk + g.rng.range(-1, 1)).max(1)) * CRIT_MULT } else { base };
-                let en = self.enemies[t].def.name;
-                if crit {
-                    msgs.push(format!("{} の こうげき! ひっさつの一撃! {} に {} のダメージ!", name, en, dmg));
-                } else {
-                    msgs.push(format!("{} の こうげき! {} に {} のダメージ!", name, en, dmg));
-                }
-                self.hit_enemy(t, dmg);
-                let wp = g.party[who].equip[0].as_deref().map(|n| base_name(n).to_string());
-                if self.enemies[t].hp <= 0 {
-                    msgs.push(format!("{} を たおした!", en));
-                } else if matches!(wp.as_deref(), Some("デカすぎこんぼう") | Some("ゴブリンクラブ")) && g.rng.chance(15) {
-                    self.enemies[t].stun = true;
-                    msgs.push(format!("{} は ふらついた!", en));
-                } else if wp.as_deref() == Some("ナイフ") && g.rng.chance(15) {
-                    let d2 = (g.party[who].atk() - self.enemies[t].defense()).max(1);
-                    self.hit_enemy(t, d2);
-                    msgs.push(format!("れんぞくこうげき! {} に {} のダメージ!", en, d2));
-                    if self.enemies[t].hp <= 0 {
-                        msgs.push(format!("{} を たおした!", en));
-                    }
-                }
+                msgs.extend(self.weapon_attack(g, who, t));
             }
             Cmd::Spell(id, t) => {
                 let s = spell(id);

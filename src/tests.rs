@@ -3067,7 +3067,9 @@ fn equipment_special_effects_are_listed_with_numbers() {
     assert_eq!(equip_effects("かがみのたて"), "光耐性30");
     assert!(item_help("炎のティアラ").contains("炎耐性30"));
     assert!(item_help("炎のティアラ").contains("DEF+5"));
-    assert!(equip_effects("ナイフ").is_empty());
+    assert_eq!(equip_effects("ナイフ"), "連続攻撃15%");
+    assert!(equip_effects("ハンドアクス").contains("敵全員こうげき20%") || equip_effects("ハンドアクス").is_empty());
+    assert!(equip_effects("バックラー").is_empty());
 }
 
 #[test]
@@ -3256,4 +3258,152 @@ fn critical_hits_ignore_defense_and_follow_equipment_text() {
         }
     }
     assert!(seen_crit, "20%で 300回 ふれば 必殺が 出る");
+}
+
+// ---------------- 武器・防具の 特殊効果 ----------------
+
+#[test]
+fn every_equipment_effect_in_the_text_is_applied() {
+    let bad: Vec<&str> = ITEMS.iter().filter(|d| unhandled_effect(d)).map(|d| d.name).collect();
+    assert!(bad.is_empty(), "説明文に効果があるのに 反映されていない: {:?}", bad);
+    // 説明文の 数字が そのまま 耐性になる
+    assert_eq!(resist("炎のローブ"), (70, 0, 0));
+    assert_eq!(resist("炎のたて"), (30, 0, 0));
+    assert_eq!(resist("キノコのハット"), (10, 10, 10));
+    assert_eq!(resist("まどうのローブ"), (30, 30, 0));
+    assert_eq!(resist("ドリルローブ"), (0, 0, 10));
+    assert_eq!(resist("アツイぼうし"), (20, 0, 0), "ことばだけの 耐性は 表のまま");
+}
+
+#[test]
+fn attack_bonus_and_stun_guard_apply() {
+    let mut g = Game::new(1);
+    let base = g.party[0].atk();
+    g.party[0].equip[3] = Some("でたらめなよろい".into());
+    assert_eq!(g.party[0].atk(), base + 10);
+    g.party[0].equip[3] = None;
+    g.party[0].equip[5] = Some("せんしのゆびわ".into());
+    assert_eq!(g.party[0].atk(), base + 5, "ゆびわの 攻撃力+5 は 1回だけ");
+    g.party[0].equip[5] = None;
+    assert_eq!(g.party[0].stun_guard(), 0);
+    g.party[0].equip[2] = Some("ちからのヘルム".into());
+    assert_eq!(g.party[0].stun_guard(), 60);
+    assert_eq!(g.party[0].atk(), base + 2);
+    g.party[0].equip[2] = Some("ゴールドヘルム".into());
+    g.party[0].equip[4] = Some("こぶりなかぶと".into());
+    assert_eq!(g.party[0].stun_guard(), 60);
+    g.party[0].equip[1] = Some("ゴブリメット".into());
+    g.party[0].equip[3] = Some("ブラックヘルム".into());
+    assert!(g.party[0].stun_guard() <= 90);
+    g.party[0].equip[5] = Some("ちょうじんのゆびわ".into());
+    assert!(g.party[0].stun_chance() >= 30);
+}
+
+fn fight_with(weapon: &str, mons: &[&str], seed: u64) -> (Game, Battle) {
+    let mut g = Game::new(seed);
+    g.change_floor(5);
+    g.party[0].equip[0] = Some(weapon.into());
+    g.party[0].hp_max = 9999;
+    g.party[0].hp = 9999;
+    for m in mons {
+        g.dungeon.roamers.push(Roamer { x: 8, y: 9, mon: m.to_string() });
+    }
+    let srcs: Vec<Source> = (0..mons.len()).map(Source::Roamer).collect();
+    let mut b = Battle::new(&g, &srcs);
+    for e in b.enemies.iter_mut() {
+        e.hp = 100000;
+    }
+    (g, b)
+}
+
+fn attacks(g: &mut Game, b: &mut Battle, n: usize) -> Vec<String> {
+    let mut all = vec![];
+    for _ in 0..n {
+        g.party[0].hp = g.party[0].hp_max;
+        for e in b.enemies.iter_mut() {
+            if e.hp < 50000 && !e.poison {
+                e.hp = 100000;
+            }
+        }
+        all.extend(b.command(g, 0, Cmd::Attack(0)));
+    }
+    all
+}
+
+#[test]
+fn weapon_effects_fire_in_battle() {
+    // 敵全員を攻撃できる: いつも 3体ぜんいんに ダメージ
+    let (mut g, mut b) = fight_with("メイデンスピア", &["slime", "slime", "slime"], 1);
+    let before: Vec<i32> = b.enemies.iter().map(|e| e.hp).collect();
+    attacks(&mut g, &mut b, 1);
+    assert!(b.enemies.iter().zip(before).all(|(e, h)| e.hp < h), "全員に当たる");
+    // 封印(確実): ふつうの 敵は かならず 封印
+    let (mut g, mut b) = fight_with("まほうのけん", &["slime"], 2);
+    attacks(&mut g, &mut b, 1);
+    assert!(b.enemies[0].sealed);
+    // 眠り(スリーパー): 何回か 殴れば 眠る(殴ると目が覚めるので 眠ったメッセージで 確認)
+    let (mut g, mut b) = fight_with("スリーパー", &["slime"], 3);
+    let log = attacks(&mut g, &mut b, 40);
+    assert!(log.iter().any(|m| m.contains("ねむってしまった")));
+    // どく: かかると 敵の ターンで ダメージ
+    let (mut g, mut b) = fight_with("カオスブリンガー", &["slime"], 4);
+    let log = attacks(&mut g, &mut b, 60);
+    assert!(log.iter().any(|m| m.contains("どくを うけた")), "毒がかかる");
+    b.enemies[0].poison = true;
+    let h = b.enemies[0].hp;
+    let mut seen = false;
+    for _ in 0..8 {
+        if let Advance::Msgs(v) = b.advance(&mut g) {
+            seen |= v.iter().any(|m| m.contains("どくで"));
+        }
+        if b.enemies[0].hp < h {
+            break;
+        }
+        if let Advance::NeedCmd(i) = b.advance(&mut g) {
+            b.command(&mut g, i, Cmd::Defend);
+        }
+    }
+    assert!(seen || b.enemies[0].hp < h, "敵が どくで へる");
+    // ぎりぎりまで(めいおうのつえ)・連続・追加・いぶき・ふらつき・かいふく・MP
+    for (w, word) in [("めいおうのつえ", "ぎりぎりまで"), ("カタナ", "れんぞくこうげき"), ("ソードオブファイア", "炎の追加攻撃"), ("炎のつえ", "敵ぜんいんに"), ("パワーソード", "ふらついた"), ("カオスバスター", "光の追加攻撃")] {
+        let (mut g, mut b) = fight_with(w, &["slime", "wan"], 5);
+        let log = attacks(&mut g, &mut b, 120);
+        assert!(log.iter().any(|m| m.contains(word)), "{} の 効果「{}」が 出ない", w, word);
+    }
+    let (mut g, mut b) = fight_with("かいふくのつえ", &["slime"], 6);
+    g.party[0].hp_max = 9999;
+    b.command(&mut g, 0, Cmd::Defend);
+    g.party[0].hp = 5;
+    let log = b.command(&mut g, 0, Cmd::Attack(0));
+    assert!(log.iter().any(|m| m.contains("かいふく")) && g.party[0].hp > 5, "{:?}", log);
+    let (mut g, mut b) = fight_with("まほうのゆみ", &["slime"], 7);
+    g.party[0].mp = 0;
+    let log = attacks(&mut g, &mut b, 120);
+    assert!(log.iter().any(|m| m.contains("MPが")), "MPが回復する");
+}
+
+#[test]
+fn elemental_and_slaying_weapons_hit_weak_monsters_harder() {
+    // 炎の力: 氷・水の魔物(ワーペン)に 2倍、そうでない(スライム)には 倍にならない
+    let dmg = |w: &str, mon: &str| {
+        let (mut g, mut b) = fight_with(w, &[mon], 8);
+        g.party[0].equip[0] = Some(w.into());
+        let before = b.enemies[0].hp;
+        // ひっさつを 避けるため ふつうに 1回だけ殴った値 → ばらつきを 避けて 最小値を とる
+        let mut best = i32::MAX;
+        for _ in 0..30 {
+            let h = b.enemies[0].hp;
+            g.party[0].hp = g.party[0].hp_max;
+            b.command(&mut g, 0, Cmd::Attack(0));
+            best = best.min(h - b.enemies[0].hp);
+        }
+        let _ = before;
+        best
+    };
+    assert!(dmg("フランベルジュ", "penguin") >= dmg("パワーソード", "penguin") * 2 - 2, "炎は 氷の魔物に 2倍");
+    assert!(dmg("フランベルジュ", "slime") <= dmg("パワーソード", "slime") + 1, "弱点でなければ 倍にならない");
+    // ホリーダッガー: アンデッドに 3倍(ふつうの 武器と くらべる)
+    let d_holy = dmg("ホリーダッガー", "ghost");
+    let d_plain = dmg("ロングスピア", "ghost");
+    assert!(d_holy > d_plain, "{} {}", d_holy, d_plain);
 }

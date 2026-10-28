@@ -186,7 +186,7 @@ pub static ITEMS: &[ItemDef] = &[
     it("かいのよろい", Kind::Body, 500, 400, 8, 0, "貝のよろい。水・氷に強い。"),
     it("ネコのドレス", Kind::Body, 500, 400, 8, 0, "ネコのドレス。"),
     it("くろねこホルター", Kind::Body, 750, 600, 12, 0, "黒ネコのホルター。"),
-    it("ドリルローブ", Kind::Body, 750, 600, 11, 0, "魔法のダメージを少し減らす。"),
+    it("ドリルローブ", Kind::Body, 750, 600, 11, 0, "光の魔法ダメージ軽減(光耐性10)"),
     it("スケールメイル", Kind::Body, 750, 600, 10, 0, "うろこのよろい。"),
     it("ブロンズブーツ", Kind::Feet, 300, 240, 6, 0, "青銅のブーツ。"),
     it("ルビーのゆびわ", Kind::Ring, 350, 280, 1, 2, "じょうぶさ+1。炎に少し強い。"),
@@ -221,7 +221,7 @@ pub static ITEMS: &[ItemDef] = &[
     it("とうぞくのオノ", Kind::Weapon, 1500, 1200, 37, 0, "敵全員を攻撃することがある"),
     it("メイデンスピア", Kind::Weapon, 1000, 800, 30, 0, "敵全員を攻撃できる"),
     it("クイーンダッガー", Kind::Weapon, 1750, 1400, 39, 0, "連続攻撃が出やすい"),
-    it("カイザーブレード", Kind::Weapon, 1750, 1400, 41, 0, "テイオウワーワン"),
+    it("カイザーブレード", Kind::Weapon, 1750, 1400, 41, 0, "テイオウワーワンの剣。"),
     it("シニスタースピア", Kind::Weapon, 1750, 1400, 40, 0, "封印することがある"),
     it("氷のつえ", Kind::Weapon, 750, 600, 24, 0, "ふぶきをはき出すことがある"),
     it("カタナ", Kind::Weapon, 1250, 1000, 32, 0, "連続攻撃が出ることがある"),
@@ -230,39 +230,39 @@ pub static ITEMS: &[ItemDef] = &[
     it("炎のつえ", Kind::Weapon, 500, 400, 21, 0, "炎をはき出す"),
     it("モーニングスター", Kind::Weapon, 750, 600, 27, 0, "追加攻撃が出ることがある"),
     it("シルフのゆみ", Kind::Weapon, 1500, 1200, 38, 0, "連続攻撃が出ることがある"),
-    it("パワーシールド", Kind::Shield, 500, 400, 9, 0, "パワーワン"),
+    it("パワーシールド", Kind::Shield, 500, 400, 9, 0, "パワーワンが持っている盾。"),
     it("炎のたて", Kind::Shield, 450, 360, 7, 0, "炎耐性30"),
     it("氷のたて", Kind::Shield, 550, 440, 8, 0, "水・氷ダメージ軽減(水耐性30)"),
     it("氷のバックラー", Kind::Shield, 350, 280, 7, 0, "水・氷ダメージ軽減(水耐性10)"),
-    it("ブラックシールド", Kind::Shield, 650, 520, 11, 0, "マスターウオリア"),
-    it("テイオウのたて", Kind::Shield, 1000, 800, 14, 0, "テイオウワーワン"),
-    it("カイトシールド", Kind::Shield, 800, 640, 13, 0, "B09F 鉄の宝箱、パワーワン（[B14F](h"),
+    it("ブラックシールド", Kind::Shield, 650, 520, 11, 0, "マスターウオリアの黒い盾。"),
+    it("テイオウのたて", Kind::Shield, 1000, 800, 14, 0, "テイオウワーワンの盾。"),
+    it("カイトシールド", Kind::Shield, 800, 640, 13, 0, "凧のような形の盾。"),
     it("ちからのヘルム", Kind::Head, 450, 360, 5, 0, "攻撃力+2、ふらつき軽減大"),
     it("ブラックヘルム", Kind::Head, 600, 480, 8, 0, "ふらつき軽減"),
     it("氷のかざり", Kind::Head, 500, 400, 7, 0, "氷のダメージ軽減(水耐性20)"),
     it("ぎんのティアラ", Kind::Head, 750, 600, 9, 0, "ふらつき軽減"),
     it("おうごんのティアラ", Kind::Head, 850, 680, 10, 0, "ふらつき軽減"),
     it("キノコのハット", Kind::Head, 500, 400, 6, 0, "魔法のダメージ軽減(炎水光耐性各10)"),
-    it("とうぞくのバンダナ", Kind::Head, 750, 600, 10, 0, "カモノハシーフ"),
+    it("とうぞくのバンダナ", Kind::Head, 750, 600, 10, 0, "カモノハシーフのバンダナ。"),
     it("メイデンヘルム", Kind::Head, 750, 600, 9, 0, "光の魔法ダメージ軽減(光耐性10)"),
     it("シルバーヘルム", Kind::Head, 650, 520, 9, 0, "ふらつき軽減"),
     it("ゴールドヘルム", Kind::Head, 1150, 920, 10, 0, "ふらつき軽減"),
-    it("プレートメイル", Kind::Body, 1100, 880, 14, 0, "パワーワン"),
-    it("ブラックメイル", Kind::Body, 1500, 1200, 17, 0, "マスターウオリア"),
-    it("のろいのローブ", Kind::Body, 250, 200, 1, 0, "ノロイピーマン"),
-    it("ぎんいろドレス", Kind::Body, 1750, 1400, 19, 0, "ぎりぎりネコマタ"),
-    it("くさったタキシード", Kind::Body, 250, 200, 2, 0, "マダシンデネー"),
-    it("シルバンレザー", Kind::Body, 2000, 1600, 19, 0, "カモノハシーフ"),
+    it("プレートメイル", Kind::Body, 1100, 880, 14, 0, "パワーワンの板金のよろい。"),
+    it("ブラックメイル", Kind::Body, 1500, 1200, 17, 0, "マスターウオリアの黒いよろい。"),
+    it("のろいのローブ", Kind::Body, 250, 200, 1, 0, "ノロイピーマンのローブ。"),
+    it("ぎんいろドレス", Kind::Body, 1750, 1400, 19, 0, "ぎりぎりネコマタの銀のドレス。"),
+    it("くさったタキシード", Kind::Body, 250, 200, 2, 0, "マダシンデネーが着ていたタキシード。"),
+    it("シルバンレザー", Kind::Body, 2000, 1600, 19, 0, "カモノハシーフの革よろい。"),
     it("メイデンホルター", Kind::Body, 2500, 2000, 22, 0, "光耐性10"),
-    it("クイーンホルター", Kind::Body, 2750, 2200, 23, 0, "ワーネコクイーン"),
-    it("くさりのローブ", Kind::Body, 1000, 800, 14, 0, "B06F 鉄の宝箱"),
+    it("クイーンホルター", Kind::Body, 2750, 2200, 23, 0, "ワーネコクイーンのホルター。"),
+    it("くさりのローブ", Kind::Body, 1000, 800, 14, 0, "鎖を編みこんだローブ。"),
     it("ルビーホルター", Kind::Body, 1250, 1000, 12, 0, "炎のダメージ軽減(炎耐性30)"),
     it("サファイアホルター", Kind::Body, 1500, 1200, 14, 0, "氷のダメージ軽減(水耐性30)"),
-    it("ブラックブーツ", Kind::Feet, 700, 560, 10, 0, "マスターウオリア"),
-    it("くさったかわぐつ", Kind::Feet, 250, 200, 1, 0, "マダシンデネー"),
-    it("とうぞくのくつ", Kind::Feet, 750, 600, 11, 0, "カモノハシーフ"),
+    it("ブラックブーツ", Kind::Feet, 700, 560, 10, 0, "マスターウオリアの黒いブーツ。"),
+    it("くさったかわぐつ", Kind::Feet, 250, 200, 1, 0, "マダシンデネーの くさった革ぐつ。"),
+    it("とうぞくのくつ", Kind::Feet, 750, 600, 11, 0, "カモノハシーフのくつ。"),
     it("メイデンブーツ", Kind::Feet, 850, 680, 12, 0, "光耐性10"),
-    it("ロイヤルブーツ", Kind::Feet, 1000, 800, 13, 0, "テイオウワーワン"),
+    it("ロイヤルブーツ", Kind::Feet, 1000, 800, 13, 0, "テイオウワーワンのブーツ。"),
     it("炎のゆびわ", Kind::Ring, 400, 320, 2, 1, "つよさ+2。武器に炎の力。"),
     it("氷のゆびわ", Kind::Ring, 400, 320, 2, 1, "つよさ+2。武器に氷の力。"),
     it("きんのゆびわ", Kind::Ring, 700, 560, 3, 2, "じょうぶさ+3。"),
@@ -1651,8 +1651,244 @@ pub fn crit_bonus(name: &str) -> u32 {
     }
 }
 
+// ---------------- 装備の 説明文から 決まる 効果 ----------------
+// 説明文に 書いてある 効果は、ここで 読みとって 戦闘に はんえいする(書いてあるのに 効かない装備を 作らない)
+
+/// 説明文の「炎耐性30」「炎水光耐性各10」「水耐性20」から 耐性(炎, 氷, 光)を 読む。数字が なければ None
+fn parse_resist(desc: &str) -> Option<(i32, i32, i32)> {
+    let i = desc.find("耐性")?;
+    let before: Vec<char> = desc[..i].chars().collect();
+    let mut elems = vec![];
+    for &c in before.iter().rev() {
+        if matches!(c, '炎' | '水' | '氷' | '光') {
+            elems.push(c);
+        } else {
+            break;
+        }
+    }
+    if elems.is_empty() {
+        return None;
+    }
+    let digits: String = desc[i + "耐性".len()..].chars().filter(|c| *c != '各').take_while(|c| c.is_ascii_digit()).collect();
+    let n: i32 = digits.parse().ok()?;
+    let mut r = (0, 0, 0);
+    for c in elems {
+        match c {
+            '炎' => r.0 = n,
+            '水' | '氷' => r.1 = n,
+            _ => r.2 = n,
+        }
+    }
+    Some(r)
+}
+
+/// 装備の ふらつきにくさ(%)。「ふらつき軽減」=30、「ふらつき軽減大」=60(設計値)
+pub fn stun_guard(name: &str) -> i32 {
+    let Some(d) = item(name) else { return 0 };
+    if !d.kind.is_equip() {
+        0
+    } else if d.desc.contains("ふらつき軽減大") {
+        60
+    } else if d.desc.contains("ふらつき軽減") || d.desc.contains("ふらつきにくく") {
+        30
+    } else {
+        0
+    }
+}
+
+/// 「攻撃力+N」(ゆびわ以外。ゆびわは つよさ+N として すでに 数えている)
+pub fn atk_bonus(name: &str) -> i32 {
+    let Some(d) = item(name) else { return 0 };
+    if d.ring != 0 {
+        return 0;
+    }
+    match d.desc.find("攻撃力+") {
+        Some(i) => d.desc[i + "攻撃力+".len()..].chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(0),
+        None => 0,
+    }
+}
+
+/// ゆびわの「ふらつき効果UP小/中/大/極大」: ふらつかせる確率に 足す(%)(設計値 10/20/30/40)
+pub fn stun_up(name: &str) -> i32 {
+    let Some(d) = item(name) else { return 0 };
+    if !d.desc.contains("ふらつき効果UP") {
+        0
+    } else if d.desc.contains("極大") {
+        40
+    } else if d.desc.contains('大') {
+        30
+    } else if d.desc.contains('中') {
+        20
+    } else {
+        10
+    }
+}
+
+/// 「武器に炎の力」のゆびわ: 属性(1=炎 2=氷 3=光)
+pub fn ring_element(name: &str) -> u8 {
+    let Some(d) = item(name) else { return 0 };
+    if !d.desc.contains("武器に") {
+        0
+    } else if d.desc.contains("炎の力") {
+        1
+    } else if d.desc.contains("氷の力") {
+        2
+    } else if d.desc.contains("光の力") {
+        3
+    } else {
+        0
+    }
+}
+
+/// 「幽霊や骨の魔物に大ダメージ」: アンデッドへの ダメージ倍率(なければ 1)
+pub fn slay_mult(name: &str) -> i32 {
+    match item(name) {
+        Some(d) if d.desc.contains("骨の魔物に大ダメージ") => 3,
+        _ => 1,
+    }
+}
+
+/// 武器の 特殊効果(%は 設計値。「〜ことがある」「出る」「出やすい」などの 言い方で 決める)
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct WFx {
+    /// 連続攻撃
+    pub multi: u32,
+    /// 敵全員を攻撃(100=いつも)
+    pub all: u32,
+    /// ふらつかせる
+    pub stun: u32,
+    /// 追加攻撃(魔法)と その属性(0=無 1=炎 2=光 3=毒)
+    pub extra: u32,
+    pub extra_elem: u8,
+    /// 属性の力(1=炎 2=氷 3=光)
+    pub element: u8,
+    /// 属性のいぶき(敵全員に 魔法のダメージ)と その属性(1=炎 2=氷)
+    pub breath: u32,
+    pub breath_elem: u8,
+    pub seal: u32,
+    pub sleep: u32,
+    pub poison: u32,
+    /// HPをぎりぎりまで落とす
+    pub hp1: u32,
+    /// 攻撃のあと 味方のHPを回復(かしこさぶん)
+    pub heal: bool,
+    /// 仲間のMPを回復
+    pub mp_heal: u32,
+}
+
+fn elem_in(s: &str) -> u8 {
+    if s.contains('炎') {
+        1
+    } else if s.contains('氷') || s.contains('水') || s.contains("ふぶき") {
+        2
+    } else if s.contains('光') {
+        3
+    } else {
+        0
+    }
+}
+
+pub fn weapon_fx(name: &str) -> WFx {
+    let mut f = WFx::default();
+    let Some(d) = item(name).filter(|d| d.kind == Kind::Weapon) else { return f };
+    let s = d.desc;
+    let some = s.contains("ことがある");
+    if s.contains("連続") {
+        f.multi = if s.contains("やすい") {
+            30
+        } else if s.contains("突く") {
+            25
+        } else {
+            15
+        };
+    }
+    if s.contains("ふらつかせる") {
+        f.stun = 15;
+    }
+    if s.contains("追加攻撃") {
+        f.extra = if some { 25 } else { 40 };
+        f.extra_elem = match elem_in(s) {
+            1 => 1,
+            3 => 2,
+            _ => {
+                if s.contains('毒') {
+                    3
+                } else {
+                    0
+                }
+            }
+        };
+    }
+    if s.contains("光の矢") {
+        f.extra = 100;
+        f.extra_elem = 2;
+    }
+    if s.contains("全員を攻撃") {
+        f.all = if s.contains("できる") { 100 } else { 20 };
+    }
+    if s.contains("力を持") || s.contains("ちからをもつ") {
+        f.element = elem_in(s);
+    }
+    if s.contains("はき出") {
+        f.breath = if some { 30 } else { 100 };
+        f.breath_elem = if s.contains('炎') { 1 } else { 2 };
+    }
+    if s.contains("封印") {
+        f.seal = if s.contains("確実") { 100 } else { 20 };
+    }
+    if s.contains("眠らせる") {
+        f.sleep = 50;
+    }
+    if s.contains("毒を与える") || s.contains("毒の矢") {
+        f.poison = 30;
+    }
+    if s.contains("ぎりぎりまで") {
+        f.hp1 = 15;
+    }
+    if s.contains("HPを回復") {
+        f.heal = true;
+    }
+    if s.contains("MPが回復") {
+        f.mp_heal = 25;
+    }
+    f
+}
+
+/// 魔物の 弱点(設計値。1=炎に弱い 2=氷・水に弱い)。光に弱いのは undead
+pub fn weak_to(id: &str) -> u8 {
+    match id {
+        "waterlime" | "coldghost" | "penguin" | "icejigoku" | "icewar" | "yukidaruma" | "killerflower" | "pepper" | "carrot" | "potato" | "boss" | "kingsnake" | "caterpillar" => 1,
+        "firelime" | "hotghost" | "hotjigoku" | "flamewar" | "dino" | "hidaruma" | "flameflower" | "flamemaster" => 2,
+        _ => 0,
+    }
+}
+
+/// 説明文に 効果の ことばが あるのに、読みとれていない 装備か(テストで 使う)
+pub fn unhandled_effect(d: &ItemDef) -> bool {
+    const WORDS: [&str; 20] = ["必殺", "連続", "ふらつ", "追加", "全員", "力を", "ちからを", "はき出", "封印", "眠", "毒", "ぎりぎりまで", "回復", "大ダメージ", "耐性", "攻撃力+", "とげ", "ダメージが", "軽減", "効果UP"];
+    if !d.kind.is_equip() || !WORDS.iter().any(|w| d.desc.contains(w)) {
+        return false;
+    }
+    let covered = weapon_fx(d.name) != WFx::default()
+        || crit_bonus(d.name) > 0
+        || resist(d.name) != (0, 0, 0)
+        || stun_guard(d.name) > 0
+        || atk_bonus(d.name) > 0
+        || stun_up(d.name) > 0
+        || ring_element(d.name) > 0
+        || slay_mult(d.name) > 1
+        || (d.ring != 0 && d.desc.contains('+'))
+        || matches!(d.name, "でたらめなけん" | "ワームシールド");
+    !covered
+}
+
+
 /// 装備の耐性(炎%, 氷%, 光%)。ボスの属性攻撃のダメージを減らす
 pub fn resist(name: &str) -> (i32, i32, i32) {
+    // 説明文に 数字が あれば それが 正(「炎耐性30」など)。ないものだけ 下の表(「炎に強い」など ことばだけの もの)
+    if let Some(r) = item(base_name(name)).and_then(|d| parse_resist(d.desc)) {
+        return r;
+    }
     match base_name(name) {
         "ヒネズミのけがわ" => (20, 0, 0),
         "メイデンシールド" => (0, 0, 20),

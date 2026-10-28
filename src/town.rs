@@ -252,6 +252,67 @@ pub fn equip_effects(name: &str) -> String {
     if cb > 0 {
         v.push(format!("必殺率+{}%", cb));
     }
+    let fx = weapon_fx(name);
+    let elem = |e: u8| ["", "炎", "氷", "光", "毒"][e as usize % 5];
+    if fx.all >= 100 {
+        v.push("いつも 敵全員を こうげき".to_string());
+    } else if fx.all > 0 {
+        v.push(format!("敵全員こうげき{}%", fx.all));
+    }
+    if fx.multi > 0 {
+        v.push(format!("連続攻撃{}%", fx.multi));
+    }
+    if fx.stun > 0 {
+        v.push(format!("ふらつかせる{}%", fx.stun));
+    }
+    if fx.extra > 0 {
+        let e = match fx.extra_elem {
+            1 => "炎",
+            2 => "光",
+            3 => "毒",
+            _ => "",
+        };
+        v.push(format!("{}追加攻撃{}%", e, fx.extra));
+    }
+    if fx.element > 0 {
+        v.push(format!("{}属性(弱点に2倍)", elem(fx.element)));
+    }
+    if fx.breath > 0 {
+        v.push(format!("{}のいぶき{}%", elem(fx.breath_elem), fx.breath));
+    }
+    if fx.seal > 0 {
+        v.push(format!("封印{}%", fx.seal));
+    }
+    if fx.sleep > 0 {
+        v.push(format!("ねむり{}%", fx.sleep));
+    }
+    if fx.poison > 0 {
+        v.push(format!("どく{}%", fx.poison));
+    }
+    if fx.hp1 > 0 {
+        v.push(format!("HPぎりぎりまで{}%", fx.hp1));
+    }
+    if fx.heal {
+        v.push("攻撃のたびに 味方を かいふく".to_string());
+    }
+    if fx.mp_heal > 0 {
+        v.push(format!("仲間のMPかいふく{}%", fx.mp_heal));
+    }
+    if ring_element(name) > 0 {
+        v.push(format!("武器に{}属性", elem(ring_element(name))));
+    }
+    if stun_up(name) > 0 {
+        v.push(format!("ふらつかせる確率+{}%", stun_up(name)));
+    }
+    if stun_guard(name) > 0 {
+        v.push(format!("ふらつき軽減{}%", stun_guard(name)));
+    }
+    if slay_mult(name) > 1 {
+        v.push(format!("オバケ・骨に{}倍", slay_mult(name)));
+    }
+    if atk_bonus(name) > 0 {
+        v.push(format!("攻撃力+{}", atk_bonus(name)));
+    }
     match d.ring {
         1 => v.push(format!("つよさ+{}", d.power)),
         2 => v.push(format!("じょうぶさ+{}", d.power)),
