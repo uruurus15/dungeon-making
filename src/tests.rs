@@ -3152,7 +3152,7 @@ fn bosses_are_tuned_for_human_play() {
 fn normal_monster_drop_total_is_capped() {
     for m in MONS {
         let total: u32 = m.drops.iter().map(|d| drop_permille(m, d.1)).sum();
-        if m.boss {
+        if m.boss || one_drop(m) {
             assert!(m.drops.iter().all(|d| drop_permille(m, d.1) == d.1 * 10));
         } else {
             assert!(total <= DROP_TOTAL_MAX * 10, "{} の ドロップ合計 {}‰", m.name, total);
@@ -3160,4 +3160,45 @@ fn normal_monster_drop_total_is_capped() {
     }
     // 合計が 上限いかの 魔物は 表のまま
     assert_eq!(drop_permille(mon("wan"), mon("wan").drops[0].1) > 0, true);
+}
+
+#[test]
+#[ignore]
+fn print_drop_changes() {
+    for m in MONS {
+        if m.boss { continue; }
+        let total: u32 = m.drops.iter().map(|d| d.1).sum();
+        if total <= DROP_TOTAL_MAX { continue; }
+        let v: Vec<String> = m.drops.iter().map(|d| format!("{} {}→{:.1}", d.0, d.1, drop_permille(m, d.1) as f32 / 10.0)).collect();
+        println!("ROW {}(合計{}→{:.1}%): {}", m.name, total, m.drops.iter().map(|d| drop_permille(m, d.1)).sum::<u32>() as f32 / 10.0, v.join(" / "));
+    }
+}
+
+#[test]
+fn big_drop_tables_drop_at_most_one_at_original_rates() {
+    let ids: Vec<&str> = MONS.iter().filter(|m| one_drop(m)).map(|m| m.id).collect();
+    assert_eq!(ids.len(), 10, "{:?}", ids);
+    let m = mon("chikaraushi");
+    let mut g = Game::new(1);
+    let mut counts = std::collections::BTreeMap::new();
+    let n = 20000;
+    for _ in 0..n {
+        let mut got = vec![];
+        let sum: u32 = m.drops.iter().map(|d| d.1).sum();
+        let mut r = g.rng.range(0, sum.max(1000) as i32 - 1) as u32;
+        for d in m.drops {
+            let p = drop_permille(m, d.1);
+            if r < p {
+                got.push(d.0);
+                break;
+            }
+            r -= p;
+        }
+        assert!(got.len() <= 1);
+        for x in got {
+            *counts.entry(x).or_insert(0u32) += 1;
+        }
+    }
+    let rate = |k: &str| *counts.get(k).unwrap_or(&0) as f32 * 100.0 / n as f32;
+    assert!((rate("チカラウシのロース") - 30.0).abs() < 2.0, "{}", rate("チカラウシのロース"));
 }

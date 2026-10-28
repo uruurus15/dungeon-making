@@ -2276,10 +2276,11 @@ impl Battle {
             let mult = 100 + 50 * (n - 1);
             // れいぞうこから出た魔物は 食べ物を落としやすい(2倍)
             let fridge = matches!(e.src, Source::Room(i, _) if g.dungeon.rooms[i].kind == "れいぞうこ");
+            // 落とす 候補と 確率(1000分率)。クエスト用の品は、必要な 数だけ(持っている・この戦闘で もう 出た ぶんを ふくむ)。達成ずみの クエストの 品は 出ない
+            let mut cands: Vec<(&str, u32)> = vec![];
             for (name, pct) in e.def.drops {
                 let food = item(name).map(|d| matches!(d.kind, Kind::Food | Kind::Veg)).unwrap_or(false);
                 let p = (drop_permille(e.def, *pct) * mult / 100 * if fridge && food { 2 } else { 1 }).min(1000);
-                // クエスト用の品は、必要な 数だけ(持っている・この戦闘で もう 出た ぶんを ふくむ)。達成ずみの クエストの 品は 出ない
                 if let Some(d) = item(name) {
                     if d.kind == Kind::Quest {
                         let have = g.count(name) + got.iter().filter(|x| x.as_str() == *name).count() as i32;
@@ -2289,15 +2290,35 @@ impl Battle {
                         }
                     }
                 }
-                if g.rng.chance_permille(p) {
-                    // 瘴気発生装置: 装備には +1〜+(置いた数)が つく
-                    let is_equip = item(name).map(|d| d.kind.is_equip()).unwrap_or(false);
-                    if is_equip && miasma > 0 {
-                        let k = g.rng.range(1, miasma as i32);
-                        got.push(format!("{}+{}", name, k));
-                    } else {
-                        got.push(name.to_string());
+                cands.push((name, p));
+            }
+            let mut dropped: Vec<&str> = vec![];
+            if one_drop(e.def) {
+                // 1回だけ ふって、ならんだ 順に 確率を 足した はんいに 入った 1つだけ 落とす
+                let sum: u32 = cands.iter().map(|c| c.1).sum();
+                let mut r = g.rng.range(0, sum.max(1000) as i32 - 1) as u32;
+                for (name, p) in &cands {
+                    if r < *p {
+                        dropped.push(name);
+                        break;
                     }
+                    r -= p;
+                }
+            } else {
+                for (name, p) in &cands {
+                    if g.rng.chance_permille(*p) {
+                        dropped.push(name);
+                    }
+                }
+            }
+            for name in dropped {
+                // 瘴気発生装置: 装備には +1〜+(置いた数)が つく
+                let is_equip = item(name).map(|d| d.kind.is_equip()).unwrap_or(false);
+                if is_equip && miasma > 0 {
+                    let k = g.rng.range(1, miasma as i32);
+                    got.push(format!("{}+{}", name, k));
+                } else {
+                    got.push(name.to_string());
                 }
             }
             if !e.def.boss {
