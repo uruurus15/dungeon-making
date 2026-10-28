@@ -3210,3 +3210,50 @@ fn armor_shop_tabs_cover_every_equipment() {
         assert!(slot < crate::shop::CATS.len(), "{}", d.name);
     }
 }
+
+#[test]
+fn critical_hits_ignore_defense_and_follow_equipment_text() {
+    // 説明文に「必殺」と書いてある装備は、ぜんぶ 必殺率が 上がる(書いてあるのに 効かない装備が ない)
+    let mut n = 0;
+    for d in ITEMS.iter().filter(|d| d.kind.is_equip() && d.desc.contains("必殺")) {
+        let b = crit_bonus(d.name);
+        assert!(b == 10 || b == 20, "{} の 必殺率 {}", d.name, b);
+        n += 1;
+    }
+    assert!(n >= 10, "必殺の装備 {}", n);
+    assert_eq!(crit_bonus("ワーワンソード"), 10);
+    assert_eq!(crit_bonus("くろのロングソード"), 20);
+    assert_eq!(crit_bonus("ひっさつのゆびわ"), 20);
+    assert_eq!(crit_bonus("ナイフ"), 0);
+    // メンバーの 必殺率: 基本3%、装備で 10〜20%、足しても 20%まで
+    let mut g = Game::new(1);
+    assert_eq!(g.party[0].crit_pct(), 3);
+    g.party[0].equip[0] = Some("ワーワンソード".into());
+    assert_eq!(g.party[0].crit_pct(), 10);
+    g.party[0].equip[5] = Some("じょうぶつのゆびわ".into());
+    assert_eq!(g.party[0].crit_pct(), 20);
+    g.party[0].equip[2] = Some("ひっさつのぼうし".into());
+    assert_eq!(g.party[0].crit_pct(), 20);
+    // 防御力が 高くても ひっさつなら ダメージが 通る(テツジン DEF70 に ATK が 足りなくても、ひっさつは 攻撃力の2倍)
+    let mut g = Game::new(5);
+    g.change_floor(5);
+    g.dungeon.portal = Some((15, 8));
+    g.dungeon.set(15, 8, Tile::Portal);
+    g.party[0].equip[0] = Some("くろのロングソード".into());
+    let atk = g.party[0].atk();
+    assert!(atk < mon("tetsu").def, "この テストは 攻撃力が 守りに 負ける前提 {}", atk);
+    let mut b = Battle::new(&g, &[Source::Boss]);
+    b.enemies[0].hp = 1_000_000;
+    let mut seen_crit = false;
+    for _ in 0..300 {
+        g.party[0].hp = g.party[0].hp_max;
+        let before = b.enemies[0].hp;
+        b.command(&mut g, 0, Cmd::Attack(0));
+        let d = before - b.enemies[0].hp;
+        if d > 1 {
+            seen_crit = true;
+            assert!((atk - 1).max(1) * CRIT_MULT <= d && d <= (atk + 1) * CRIT_MULT, "必殺ダメージ {} atk {}", d, atk);
+        }
+    }
+    assert!(seen_crit, "20%で 300回 ふれば 必殺が 出る");
+}

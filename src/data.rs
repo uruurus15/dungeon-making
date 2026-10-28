@@ -1631,6 +1631,26 @@ pub fn hidden_items(floor: usize) -> Vec<(usize, usize, String)> {
     }
 }
 
+/// ひっさつの 基本の 出る確率(%)
+pub const CRIT_BASE_PCT: u32 = 3;
+/// 装備で 上がる ひっさつ率の 上限(%)
+pub const CRIT_MAX_PCT: u32 = 20;
+/// ひっさつの ダメージ倍率(防御力を 無視した 攻撃力に かける)
+pub const CRIT_MULT: i32 = 2;
+
+/// 装備1つが 足す ひっさつ率(%)。説明文の 言い方に あわせる:「〜ことがある」「UP中」=10、「出やすい」「UP大」=20、書いてなければ 0
+pub fn crit_bonus(name: &str) -> u32 {
+    let Some(d) = item(name) else { return 0 };
+    if !d.desc.contains("必殺") {
+        return 0;
+    }
+    if d.desc.contains("やすい") || d.desc.contains("やすく") || d.desc.contains("UP大") {
+        20
+    } else {
+        10
+    }
+}
+
 /// 装備の耐性(炎%, 氷%, 光%)。ボスの属性攻撃のダメージを減らす
 pub fn resist(name: &str) -> (i32, i32, i32) {
     match base_name(name) {

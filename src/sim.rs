@@ -513,6 +513,15 @@ impl Member {
                 .map(|i| i.power)
                 .sum::<i32>()
     }
+    /// ひっさつの 出る確率(%): 基本3%。装備の 必殺アップ(10%・20%)を 足して、最大20%
+    pub fn crit_pct(&self) -> u32 {
+        let up: u32 = self.equip.iter().flatten().map(|n| crit_bonus(n)).sum();
+        if up == 0 {
+            CRIT_BASE_PCT
+        } else {
+            up.min(CRIT_MAX_PCT)
+        }
+    }
     /// 属性の耐性(%): 0=炎 1=氷 2=光
     pub fn resist(&self, elem: usize) -> i32 {
         if elem > 2 {
@@ -2991,8 +3000,9 @@ impl Battle {
                     atk = atk * g.rng.range(0, 31) / 10;
                 }
                 let base = (atk - self.enemies[t].defense() + g.rng.range(-1, 1)).max(1);
-                let crit = g.rng.chance(3);
-                let dmg = if crit { base * 10 } else { base };
+                let crit = g.rng.chance(g.party[who].crit_pct());
+                // ひっさつは 相手の防御力を 無視する(攻撃力そのままの 2倍)
+                let dmg = if crit { ((atk + g.rng.range(-1, 1)).max(1)) * CRIT_MULT } else { base };
                 let en = self.enemies[t].def.name;
                 if crit {
                     msgs.push(format!("{} の こうげき! ひっさつの一撃! {} に {} のダメージ!", name, en, dmg));
@@ -3010,13 +3020,6 @@ impl Battle {
                     let d2 = (g.party[who].atk() - self.enemies[t].defense()).max(1);
                     self.hit_enemy(t, d2);
                     msgs.push(format!("れんぞくこうげき! {} に {} のダメージ!", en, d2));
-                    if self.enemies[t].hp <= 0 {
-                        msgs.push(format!("{} を たおした!", en));
-                    }
-                } else if wp.as_deref() == Some("ワーワンソード") && g.rng.chance(12) {
-                    let d2 = base * 3;
-                    self.hit_enemy(t, d2);
-                    msgs.push(format!("ひっさつの一撃! {} に {} のダメージ!", en, d2));
                     if self.enemies[t].hp <= 0 {
                         msgs.push(format!("{} を たおした!", en));
                     }

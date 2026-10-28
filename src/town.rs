@@ -248,6 +248,10 @@ pub fn equip_effects(name: &str) -> String {
     if l > 0 {
         v.push(format!("光耐性{}", l));
     }
+    let cb = crit_bonus(name);
+    if cb > 0 {
+        v.push(format!("必殺率+{}%", cb));
+    }
     match d.ring {
         1 => v.push(format!("つよさ+{}", d.power)),
         2 => v.push(format!("じょうぶさ+{}", d.power)),
