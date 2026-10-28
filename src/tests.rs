@@ -3202,3 +3202,11 @@ fn big_drop_tables_drop_at_most_one_at_original_rates() {
     let rate = |k: &str| *counts.get(k).unwrap_or(&0) as f32 * 100.0 / n as f32;
     assert!((rate("チカラウシのロース") - 30.0).abs() < 2.0, "{}", rate("チカラウシのロース"));
 }
+
+#[test]
+fn armor_shop_tabs_cover_every_equipment() {
+    for d in ITEMS.iter().filter(|d| d.kind.is_equip()) {
+        let slot = d.kind.slot().expect(d.name);
+        assert!(slot < crate::shop::CATS.len(), "{}", d.name);
+    }
+}

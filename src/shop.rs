@@ -38,6 +38,27 @@ pub struct ShopSt {
     talk_init: bool,
     /// 話が終わったら「かう」を開いて ナイフに カーソルを合わせる(はじめての武具屋)
     goto_buy: bool,
+    /// 武具屋の タブ(0=ぶき 1=たて 2=あたま 3=からだ 4=あし 5=ゆびわ)。店を出るまで おぼえておく
+    pub cat: usize,
+}
+
+/// 武具屋の 種類わけ(Kind::slot の 番号と おなじ)
+pub const CATS: [&str; 6] = ["ぶき", "たて", "あたま", "からだ", "あし", "ゆびわ"];
+const TAB_Y: f32 = 40.0;
+const TAB_H: f32 = 30.0;
+
+fn cat_of(n: &str) -> Option<usize> {
+    item(n).and_then(|d| d.kind.slot())
+}
+
+/// 武具屋の 買う・売る 画面で タブを つかうか
+fn has_tabs(kind: ShopKind, page: Page) -> bool {
+    kind == ShopKind::Armor && matches!(page, Page::Buy | Page::Sell)
+}
+
+fn tab_rect(i: usize) -> Rect {
+    let w = (LW - 20.0) / CATS.len() as f32;
+    Rect::new(10.0 + w * i as f32, SH + TAB_Y, w - 3.0, TAB_H)
 }
 
 const QTY: [i32; 3] = [1, 5, 10];
@@ -65,7 +86,7 @@ impl ShopSt {
             ShopKind::Mayor => "おお、アレン。ダンジョンの調子はどうじゃ?",
         };
         let _ = g;
-        ShopSt { kind, page: Page::Main, menu: ListMenu::new(), msg: msg.to_string(), qi: 0, talk: Default::default(), talk_init: false, goto_buy: false }
+        ShopSt { kind, page: Page::Main, menu: ListMenu::new(), msg: msg.to_string(), qi: 0, talk: Default::default(), talk_init: false, goto_buy: false, cat: 0 }
     }
 }
 
@@ -148,6 +169,27 @@ impl App {
             st.msg = l.clone();
         }
         let kind = st.kind;
+        // ---- 武具屋のタブ: Q・E か クリックで きりかえ ----
+        if has_tabs(kind, st.page) && !talking {
+            let mut to = st.cat;
+            if self.inp.r {
+                to = (st.cat + 1) % CATS.len();
+            }
+            if self.inp.l {
+                to = (st.cat + CATS.len() - 1) % CATS.len();
+            }
+            if self.inp.click {
+                if let Some(i) = (0..CATS.len()).find(|&i| tab_rect(i).contains(self.inp.mouse)) {
+                    to = i;
+                }
+            }
+            if to != st.cat {
+                self.leave_tab(st);
+                st.cat = to;
+                st.menu = ListMenu::new();
+                self.ui.audio.sfx("ok");
+            }
+        }
         let g = &self.g;
         let ui = &self.ui;
         // ---- 行の組み立て ----
@@ -182,7 +224,7 @@ impl App {
                 rows.push((Row::new("でる"), Act::Leave));
             }
             Page::Buy => {
-                for n in buy_list(kind, g) {
+                for n in buy_list(kind, g).into_iter().filter(|n| kind != ShopKind::Armor || cat_of(n) == Some(st.cat)) {
                     let d = item(&n).unwrap();
                     let own = g.count(&n);
                     let label = if own > 0 { format!("{}  (もっている {})", n, own) } else { n.clone() };
@@ -190,7 +232,7 @@ impl App {
                 }
             }
             Page::Sell => {
-                for n in sell_list(kind, g) {
+                for n in sell_list(kind, g).into_iter().filter(|n| kind != ShopKind::Armor || cat_of(n) == Some(st.cat)) {
                     let d = item(&n).unwrap();
                     rows.push((Row::new(format!("{}  x{}", n, g.count(&n))).right(format!("{}G", d.sell)), Act::Sell(n)));
                 }
@@ -254,7 +296,26 @@ impl App {
         if matches!(st.page, Page::Buy | Page::Sell | Page::Spell) {
             ui.text_right("ねだん", LW - 24.0, SH + 12.0, 18.0, CREAM);
         }
-        let list_rect = Rect::new(10.0, SH + 40.0, LW - 20.0, 262.0);
+        let tabs = has_tabs(kind, st.page);
+        let list_rect = if tabs { Rect::new(10.0, SH + TAB_Y + TAB_H + 4.0, LW - 20.0, 228.0) } else { Rect::new(10.0, SH + 40.0, LW - 20.0, 262.0) };
+        if tabs {
+            // 種類タブ(空の タブは うすく。新しい品が あるタブには 赤い!)
+            let full: Vec<String> = if st.page == Page::Buy { buy_list(kind, g) } else { sell_list(kind, g) };
+            for (i, name) in CATS.iter().enumerate() {
+                let r = tab_rect(i);
+                let in_tab: Vec<&String> = full.iter().filter(|n| cat_of(n) == Some(i)).collect();
+                let cur = i == st.cat;
+                let hover = r.contains(self.inp.mouse);
+                let base = if cur { rgb(150, 100, 52) } else if hover { rgb(112, 76, 42) } else { rgb(84, 56, 32) };
+                draw_rectangle(r.x, r.y, r.w, r.h, base);
+                draw_rectangle_lines(r.x, r.y, r.w, r.h, if cur { 3.0 } else { 1.5 }, if cur { rgb(255, 230, 140) } else { rgb(190, 170, 120) });
+                let col = if in_tab.is_empty() { rgb(160, 140, 110) } else if cur { rgb(255, 245, 200) } else { CREAM };
+                ui.text_center(&format!("{} {}", name, in_tab.len()), r.x + r.w / 2.0 - 3.0, r.y + 6.0, 16.0, col);
+                if st.page == Page::Buy && in_tab.iter().any(|n| !g.seen.contains(*n)) {
+                    draw_bang(r.x + r.w - 6.0, r.y + 4.0, 5.0, ui.t, ui);
+                }
+            }
+        }
         if matches!(st.page, Page::Buy | Page::Sell) {
             // ←→ でまとめ買い・まとめ売りの個数を変える
             st.menu.no_page = true;
@@ -264,7 +325,10 @@ impl App {
             if self.inp.left {
                 st.qi = st.qi.saturating_sub(1);
             }
-            ui.text(&format!("←→ で個数: x{}", QTY[st.qi]), 220.0, SH + 12.0, 18.0, rgb(255, 230, 140));
+            ui.text(&format!("←→ で個数: x{}", QTY[st.qi]), if tabs { 96.0 } else { 220.0 }, SH + 12.0, if tabs { 16.0 } else { 18.0 }, rgb(255, 230, 140));
+            if tabs {
+                ui.text("Q・E で しゅるい", 250.0, SH + 12.0, 16.0, rgb(255, 230, 140));
+            }
         } else {
             st.menu.no_page = false;
         }
@@ -287,7 +351,9 @@ impl App {
                     if st.goto_buy {
                         st.goto_buy = false;
                         st.page = Page::Buy;
-                        let list = buy_list(kind, &self.g);
+                        // ナイフは ぶきタブ
+                        st.cat = 0;
+                        let list: Vec<String> = buy_list(kind, &self.g).into_iter().filter(|n| cat_of(n) == Some(0)).collect();
                         st.menu = ListMenu::new();
                         st.menu.cursor = list.iter().position(|n| n == "ナイフ").unwrap_or(0);
                         st.msg = "さあ、ナイフを 買っていってね!".to_string();
@@ -301,6 +367,7 @@ impl App {
             MenuEv::Cancel => {
                 // 新入荷の一覧を見終わったら、赤い!を消す
                 match st.page {
+                    Page::Buy if kind == ShopKind::Armor => self.leave_tab(st),
                     Page::Buy => self.g.mark_seen(key(kind), false),
                     Page::Spell => self.g.mark_seen(key(kind), true),
                     _ => {}
@@ -317,6 +384,15 @@ impl App {
                     Act::Go(p) => {
                         st.page = p;
                         st.menu = ListMenu::new();
+                        // 武具屋: 今のタブが からっぽなら、品のある いちばん左のタブへ
+                        if has_tabs(kind, p) {
+                            let full = if p == Page::Buy { buy_list(kind, &self.g) } else { sell_list(kind, &self.g) };
+                            if !full.iter().any(|n| cat_of(n) == Some(st.cat)) {
+                                if let Some(c) = (0..CATS.len()).find(|&c| full.iter().any(|n| cat_of(n) == Some(c))) {
+                                    st.cat = c;
+                                }
+                            }
+                        }
                     }
                     Act::Leave => return Some(Scr::Town(TownSt::new(None))),
                     Act::Buy(n) => {
@@ -404,5 +480,15 @@ impl App {
         }
         None
     }
-}
 
+    /// 武具屋の タブを はなれる とき: そのタブの 新入荷を 見たことにする
+    fn leave_tab(&mut self, st: &ShopSt) {
+        if st.page == Page::Buy && st.kind == ShopKind::Armor {
+            for n in buy_list(st.kind, &self.g) {
+                if cat_of(&n) == Some(st.cat) {
+                    self.g.seen.insert(n);
+                }
+            }
+        }
+    }
+}

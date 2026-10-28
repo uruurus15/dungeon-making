@@ -226,6 +226,25 @@ impl App {
         match name {
             "town" => self.scr = Scr::Town(town::TownSt::new(None)),
             "shop" => self.scr = Scr::Shop(shop::ShopSt::new(shop::ShopKind::Magic, &self.g)),
+            n if n.starts_with("armor_buy_") || n.starts_with("armor_sell_") => {
+                // armor_buy_<タブ0-5> / armor_sell_<タブ>: 武具屋の タブつき 一覧(品ぞろえは 全装備の 一部)
+                self.debug = true;
+                self.g.preset(3);
+                for (i, d) in data::ITEMS.iter().filter(|d| d.kind.is_equip() && d.buy > 0).enumerate() {
+                    if i % 3 == 0 {
+                        self.g.armor_stock.insert(d.name.to_string());
+                    }
+                    if i % 5 == 0 {
+                        self.g.add_item(d.name, 1);
+                    }
+                }
+                self.g.gold = 3000;
+                let mut st = shop::ShopSt::new(shop::ShopKind::Armor, &self.g);
+                st.talk.clear();
+                st.page = if n.starts_with("armor_buy_") { shop::Page::Buy } else { shop::Page::Sell };
+                st.cat = n.rsplit('_').next().and_then(|c| c.parse().ok()).unwrap_or(0);
+                self.scr = Scr::Shop(st);
+            }
             "armor" => self.scr = Scr::Shop(shop::ShopSt::new(shop::ShopKind::Armor, &self.g)),
             "home" => self.scr = Scr::Home(home::HomeSt::new(&self.g)),
             "morning" => self.scr = Scr::Morning(vec!["ぐっすり ねむった".into(), "魔物が3びき すみついた".into(), "通路は静かだ".into(), "ひょうか 12".into()]),
