@@ -2766,7 +2766,18 @@ fn miasma_generators_cap_at_five_make_monsters_stronger_and_tag_drops() {
     g.add_item(MIASMA_ROOM, 1);
     assert!(g.place_room(MIASMA_ROOM).is_err(), "6個めは 置けない");
     // 魔物は 1.2倍ずつ(切り上げ)
-    for (n, boost) in [(0usize, 100), (1, 120), (2, 144), (3, 173), (4, 208), (5, 250)] {
+    // ふつうの魔物は もともと 130%。そこから 1個ごとに 1.2倍(切り上げ)
+    let mut expect = [130];
+    let mut cur = 130;
+    let mut table = vec![];
+    for n in 0..=5usize {
+        if n > 0 {
+            cur = (cur * 12 + 9) / 10;
+        }
+        table.push((n, cur));
+    }
+    let _ = &mut expect;
+    for (n, boost) in table {
         let mut h = Game::new(501);
         put_miasma(&mut h, n);
         h.dungeon.roamers.push(Roamer { x: 8, y: 11, mon: "wan".into() });

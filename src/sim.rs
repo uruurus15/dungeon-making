@@ -713,6 +713,9 @@ fn yes() -> bool {
     true
 }
 
+/// ふつうの魔物の 強さの 倍率(%)
+pub const NORMAL_BOOST: i32 = 130;
+
 impl Game {
     /// はじめから(物語のはじまり): アレンひとり。メイミは3日めに、ジェリーは1Fのボスのあとに 仲間になる
     pub fn start_story(seed: u64) -> Game {
@@ -2109,6 +2112,10 @@ impl Battle {
             // 部屋のとくせい: ベッド=寝ている / さかば=よっぱらい / けっかいのへや=ふういん / まほうじん=魔物が最高に強い
             let sleep = if kind == "わらのベッド" || kind == "りっぱなベッド" { 2 } else { 0 };
             let mut boost = if kind == "まほうじん" { 150 } else { 100 };
+            // ふつうの 魔物は ボスに くらべて 弱すぎたので、全体に 少し 強くする(HP・ATK・DEF が 1.3倍。ボスは そのまま)
+            if !def.boss {
+                boost = boost * NORMAL_BOOST / 100;
+            }
             // 瘴気発生装置: 1個ごとに 魔物が 1.2倍(切り上げ)
             for _ in 0..g.miasma_count() {
                 boost = (boost * 12 + 9) / 10;
