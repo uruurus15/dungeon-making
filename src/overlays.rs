@@ -167,6 +167,7 @@ impl App {
                     Row::new("音楽の音量").right(bar(self.g.bgm_vol)),
                     Row::new("効果音の音量").right(bar(self.g.sfx_vol)),
                     Row::new("戦闘ログ").right(log_mode),
+                    Row::new("あるく速さ").right(["ふつう(最速)", "すこし遅い", "遅い"][self.g.walk_speed as usize % 3]),
                     Row::new("画面").right(view_mode),
                     Row::new("もどる"),
                 ];
@@ -178,7 +179,8 @@ impl App {
                     0 if dir != 0 => self.g.bgm_vol = (self.g.bgm_vol as i32 + dir).clamp(0, 10) as u8,
                     1 if dir != 0 => self.g.sfx_vol = (self.g.sfx_vol as i32 + dir).clamp(0, 10) as u8,
                     2 if dir != 0 => self.g.manual_log = !self.g.manual_log,
-                    3 if dir != 0 => self.g.view_mode = ((self.g.view_mode as i32 + dir + 3) % 3) as u8,
+                    3 if dir != 0 => self.g.walk_speed = ((self.g.walk_speed as i32 + dir + 3) % 3) as u8,
+                    4 if dir != 0 => self.g.view_mode = ((self.g.view_mode as i32 + dir + 3) % 3) as u8,
                     _ => changed = false,
                 }
                 if changed && cur == 1 {
@@ -186,7 +188,7 @@ impl App {
                     self.ui.audio.sfx("hit");
                 }
                 menu.no_page = true;
-                match menu.run(&self.ui, &self.inp, &rows, r, 58.0, 22.0, Style::Parchment, true) {
+                match menu.run(&self.ui, &self.inp, &rows, r, 48.0, 22.0, Style::Parchment, true) {
                     MenuEv::Confirm(0) => self.g.bgm_vol = (self.g.bgm_vol + 1) % 11,
                     MenuEv::Confirm(1) => {
                         self.g.sfx_vol = (self.g.sfx_vol + 1) % 11;
@@ -194,7 +196,8 @@ impl App {
                         self.ui.audio.sfx("hit");
                     }
                     MenuEv::Confirm(2) => self.g.manual_log = !self.g.manual_log,
-                    MenuEv::Confirm(3) => self.g.view_mode = (self.g.view_mode + 1) % 3,
+                    MenuEv::Confirm(3) => self.g.walk_speed = (self.g.walk_speed + 1) % 3,
+                    MenuEv::Confirm(4) => self.g.view_mode = (self.g.view_mode + 1) % 3,
                     MenuEv::Confirm(_) | MenuEv::Cancel => keep = false,
                     MenuEv::None => {}
                 }

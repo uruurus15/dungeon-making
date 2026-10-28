@@ -40,6 +40,8 @@ pub struct Input {
     hold_frames: u32,
     pub l: bool,
     pub r: bool,
+    /// 長押しのくりかえしに 足す 秒(歩く速さの設定。0=いちばん速い)
+    pub rate_extra: f32,
     pub mouse: Vec2,
     pub click: bool,
     pub rclick: bool,
@@ -80,7 +82,7 @@ impl Input {
             } else if down {
                 self.hold[i] += dt;
                 if self.hold[i] > REPEAT_DELAY {
-                    self.hold[i] -= REPEAT_RATE;
+                    self.hold[i] -= REPEAT_RATE + self.rate_extra;
                     out[i] = true;
                     self.dk[i] = if self.long_press[i] { 3 } else { 2 };
                     self.long_press[i] = true;
@@ -169,6 +171,10 @@ impl Input {
             "y" | "magic" => self.y = true,
             "u" | "undo" => self.u = true,
             "hold" => self.hold_frames = 400,
+            // 長押しの 1歩分(3Dで むきを かえずに あるく の 確認用): holds=うしろ holdl=左 holdr=右
+            "holds" => self.dk[1] = 3,
+            "holdl" => self.dk[2] = 3,
+            "holdr" => self.dk[3] = 3,
             "tup" => {
                 self.up = true;
                 self.shift = true;
@@ -208,8 +214,8 @@ impl Input {
 pub const RT_K: f32 = 2.0;
 
 pub const TIP_DEFAULT: &str = "Z/Enter:けってい  X/Esc:もどる  C:メニュー  V:まほう  U:もどす  F11:ぜんがめん  F9:がめん  M:おと";
-/// ダンジョン(3D): W=すすむ、A/S/D=ちょん押しで その向き・長押しで その向きへ すすむ
-pub const TIP_3D: &str = "Z:ほる X:へや C:メニュー V:まほう U:もどす  WASD:ちょん押し=むきを かえる 長押し=すすむ  Tab:2D  F11  M:おと";
+/// ダンジョン(3D): W=すすむ、A/S/D=ちょん押しで その向き・長押しで 向きは そのまま 横・うしろへ あるく
+pub const TIP_3D: &str = "Z:ほる X:へや C:メニュー V:まほう U:もどす  WASD:ちょん押し=むきを かえる 長押し=むきそのまま あるく  Tab:2D  F11  M:おと";
 pub const TIP_2D: &str = "Z:ほる X:へや C:メニュー V:まほう U:もどす  矢印:むき→もう一度で すすむ  Shift+矢印:むきだけ  Tab:3D  F11  M:おと";
 
 /// 画面の並べ方。0=オート(横長の窓ならPC) 1=スマホ縦 2=PC横

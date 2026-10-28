@@ -25,13 +25,11 @@ pub struct DunSt {
     pub sub: DSub,
     /// 「うめる」の確認待ち(押しまちがい防止): (対象マス, 残り秒)
     pub arm: Option<((usize, usize), f32)>,
-    /// 3D: 長押しで進んでいる向き(キーごと。押しはじめの向きで 進みつづける)
-    pub hold_world: [Option<Dir>; 4],
 }
 
 impl DunSt {
     pub fn new() -> DunSt {
-        DunSt { sub: DSub::Play, arm: None, hold_world: [None; 4] }
+        DunSt { sub: DSub::Play, arm: None }
     }
 }
 
@@ -335,8 +333,8 @@ impl App {
                 let prev = self.g.pos;
                 let mut dir = None;
                 let m3 = self.g.map3d;
-                // 3D: W(↑)=すすむ(長押しで 進みつづける)。A/S/D(←↓→)は ちょん押し=その向きを向く、長押し=その向きへ すすむ
-                let keep_facing: Option<Dir> = None;
+                // 3D: W(↑)=すすむ(長押しで 進みつづける)。A/S/D(←↓→)は ちょん押し=その向きを向く、長押し=向きは かえずに 横・うしろへ あるく
+                let mut keep_facing: Option<Dir> = None;
                 if m3 {
                     let f = self.g.facing;
                     if self.inp.up {
@@ -353,16 +351,10 @@ impl App {
                                 self.g.facing = target;
                                 st.arm = None;
                             }
-                            2 => {
-                                // 長押しのはじまり: その向きを向いて 進む
-                                st.hold_world[i] = Some(target);
-                                self.g.facing = target;
+                            2 | 3 => {
+                                // 長押し: 向きは かえずに、その方向へ あるく(はじまりも くりかえしも おなじ)
                                 dir = Some(target);
-                            }
-                            3 => {
-                                let wd = st.hold_world[i].unwrap_or(target);
-                                self.g.facing = wd;
-                                dir = Some(wd);
+                                keep_facing = Some(f);
                             }
                             _ => {}
                         }
@@ -433,9 +425,7 @@ impl App {
                     }
                 }
                 if let Some(f) = keep_facing {
-                    if matches!(next, None) {
-                        self.g.facing = f;
-                    }
+                    self.g.facing = f;
                 }
                 if let Some((_, t)) = &mut st.arm {
                     *t -= get_frame_time();

@@ -663,6 +663,9 @@ pub struct Game {
     /// 戦闘のメッセージを、決定キー/クリックで進める(false なら時間で自動で流れる)
     #[serde(default = "default_manual_log")]
     pub manual_log: bool,
+    /// 歩く速さ(長押し)。0=ふつう(いちばん速い) 1=すこしゆっくり 2=ゆっくり
+    #[serde(default)]
+    pub walk_speed: u8,
     /// 画面の並べ方。0=オート(横長の窓ならPC) 1=スマホ縦 2=PC横
     #[serde(default)]
     pub view_mode: u8,
@@ -797,6 +800,7 @@ impl Game {
             quests: BTreeMap::new(),
             visited_magic: false,
             manual_log: true,
+            walk_speed: 0,
             view_mode: 0,
             map3d: true,
             sound_mode: 0,
@@ -2070,10 +2074,11 @@ impl Game {
     }
 
     /// 端末ごとの好みの設定(音量・画面・戦闘ログ)。ほかのセーブに 引きつぐ
-    pub fn settings(&self) -> (u8, u8, u8, u8, bool, bool) {
-        (self.bgm_vol, self.sfx_vol, self.sound_mode, self.view_mode, self.manual_log, self.map3d)
+    pub fn settings(&self) -> (u8, u8, u8, u8, bool, bool, u8) {
+        (self.bgm_vol, self.sfx_vol, self.sound_mode, self.view_mode, self.manual_log, self.map3d, self.walk_speed)
     }
-    pub fn set_settings(&mut self, s: (u8, u8, u8, u8, bool, bool)) {
+    pub fn set_settings(&mut self, s: (u8, u8, u8, u8, bool, bool, u8)) {
+        self.walk_speed = s.6.min(2);
         self.map3d = s.5;
         self.bgm_vol = s.0;
         self.sfx_vol = s.1;

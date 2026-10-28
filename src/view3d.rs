@@ -509,7 +509,7 @@ impl crate::App {
         draw_rectangle(LW - w - 8.0, VIEW_TOP + 8.0, w, 26.0, rgba(20, 30, 40, 215));
         draw_rectangle_lines(LW - w - 8.0, VIEW_TOP + 8.0, w, 26.0, 2.0, rgb(150, 190, 210));
         ui.text(&tag, LW - w + 1.0, VIEW_TOP + 12.0, 16.0, CREAM);
-        ui.text("W:すすむ  A・S・D:ちょん押し=むき 長押し=すすむ", 10.0, VIEW_TOP + 12.0, 15.0, rgb(200, 215, 225));
+        ui.text("W:すすむ  ASD:ちょん押し=むき 長押し=むきそのまま歩く", 10.0, VIEW_TOP + 12.0, 15.0, rgb(200, 215, 225));
         // 目の前の部屋の名前
         if let Some((fx, fy)) = g.front() {
             if let Some(i) = d.room_at(fx, fy) {

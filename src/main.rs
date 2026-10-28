@@ -436,6 +436,12 @@ impl App {
                 self.g.facing = match v.get(3).copied().unwrap_or("u") { "d" => sim::Dir::Down, "l" => sim::Dir::Left, "r" => sim::Dir::Right, _ => sim::Dir::Up };
                 self.scr = Scr::Dungeon(dungeon::DunSt::new());
             }
+            "options" => {
+                self.debug = true;
+                self.g.preset(3);
+                self.scr = Scr::Town(town::TownSt::new(None));
+                self.ov = Some(overlays::Overlay::Options(ListMenu::new()));
+            }
             "equip" => {
                 self.debug = true;
                 self.g.preset(3);
@@ -575,7 +581,10 @@ async fn main() {
     // 設定(音量・画面など)は settings.json に保存して、次の起動でも使う。検証用の起動(--screen/--keys/--shot)では 読み書きしない
     let persist = !args.iter().any(|a| a == "--screen" || a == "--keys" || a == "--shot" || a == "--debug");
     if persist {
-        if let Some(st) = assets::load_text("settings").and_then(|t| serde_json::from_str::<(u8, u8, u8, u8, bool, bool)>(&t).ok()) {
+        if let Some(st) = assets::load_text("settings").and_then(|t| {
+            // 古い settings.json(歩く速さの 前の 6項目)も 読む
+            serde_json::from_str::<(u8, u8, u8, u8, bool, bool, u8)>(&t).ok().or_else(|| serde_json::from_str::<(u8, u8, u8, u8, bool, bool)>(&t).ok().map(|s| (s.0, s.1, s.2, s.3, s.4, s.5, 0)))
+        }) {
             app.g.set_settings(st);
         }
     }
@@ -628,6 +637,8 @@ async fn main() {
         if app.debug && is_key_pressed(KeyCode::F1) {
             app.ov = if matches!(app.ov, Some(overlays::Overlay::Debug(_))) { None } else { Some(overlays::Overlay::Debug(debug::DebugSt::new())) };
         }
+        // 歩く速さの設定は ダンジョンの 長押しだけに かける(メニューの くりかえしは そのまま)
+        app.inp.rate_extra = if matches!(app.scr, Scr::Dungeon(_)) { [0.0, 0.04, 0.10][app.g.walk_speed.min(2) as usize] } else { 0.0 };
         app.inp.poll(&app.view);
         set_camera(&Camera2D { render_target: Some(rt.clone()), ..Camera2D::from_display_rect(Rect::new(0.0, 0.0, LW, LH)) });
         clear_background(BLACK);
