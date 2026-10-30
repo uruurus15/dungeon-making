@@ -3237,14 +3237,14 @@ fn critical_hits_ignore_defense_and_follow_equipment_text() {
     assert_eq!(g.party[0].crit_pct(), 20);
     g.party[0].equip[2] = Some("ひっさつのぼうし".into());
     assert_eq!(g.party[0].crit_pct(), 20);
-    // 防御力が 高くても ひっさつなら ダメージが 通る(テツジン DEF70 に ATK が 足りなくても、ひっさつは 攻撃力の2倍)
+    // DEFが 高くても ひっさつなら ダメージが 通る(テツジン DEF70 に ATK が 足りなくても、ひっさつは ATKの2倍)
     let mut g = Game::new(5);
     g.change_floor(5);
     g.dungeon.portal = Some((15, 8));
     g.dungeon.set(15, 8, Tile::Portal);
     g.party[0].equip[0] = Some("くろのロングソード".into());
     let atk = g.party[0].atk();
-    assert!(atk < mon("tetsu").def, "この テストは 攻撃力が 守りに 負ける前提 {}", atk);
+    assert!(atk < mon("tetsu").def, "この テストは ATKが 守りに 負ける前提 {}", atk);
     let mut b = Battle::new(&g, &[Source::Boss]);
     b.enemies[0].hp = 1_000_000;
     let mut seen_crit = false;
@@ -3284,7 +3284,7 @@ fn attack_bonus_and_stun_guard_apply() {
     assert_eq!(g.party[0].atk(), base + 10);
     g.party[0].equip[3] = None;
     g.party[0].equip[5] = Some("せんしのゆびわ".into());
-    assert_eq!(g.party[0].atk(), base + 5, "ゆびわの 攻撃力+5 は 1回だけ");
+    assert_eq!(g.party[0].atk(), base + 5, "ゆびわの ATK+5 は 1回だけ");
     g.party[0].equip[5] = None;
     assert_eq!(g.party[0].stun_guard(), 0);
     g.party[0].equip[2] = Some("ちからのヘルム".into());
@@ -3366,7 +3366,7 @@ fn weapon_effects_fire_in_battle() {
     }
     assert!(seen || b.enemies[0].hp < h, "敵が どくで へる");
     // ぎりぎりまで(めいおうのつえ)・連続・追加・いぶき・ふらつき・かいふく・MP
-    for (w, word) in [("めいおうのつえ", "ぎりぎりまで"), ("カタナ", "れんぞくこうげき"), ("ソードオブファイア", "炎の追加攻撃"), ("炎のつえ", "敵ぜんいんに"), ("パワーソード", "ふらついた"), ("カオスバスター", "光の追加攻撃")] {
+    for (w, word) in [("めいおうのつえ", "ぎりぎりまで"), ("カタナ", "連続攻撃"), ("ソードオブファイア", "炎の追加攻撃"), ("炎のつえ", "敵ぜんいんに"), ("パワーソード", "ふらついた"), ("カオスバスター", "光の追加攻撃")] {
         let (mut g, mut b) = fight_with(w, &["slime", "wan"], 5);
         let log = attacks(&mut g, &mut b, 120);
         assert!(log.iter().any(|m| m.contains(word)), "{} の 効果「{}」が 出ない", w, word);

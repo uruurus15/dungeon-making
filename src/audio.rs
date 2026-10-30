@@ -116,7 +116,7 @@ impl Audio {
 /// 戦闘のメッセージ1行に合う効果音。party は味方の名前
 pub fn sfx_for_message(msg: &str, party: &[String]) -> Option<&'static str> {
     let hits_party = party.iter().any(|n| msg.contains(&format!("{} に ", n)) || msg.contains(&format!("{}に ", n)));
-    if msg.contains("ひっさつ") {
+    if msg.contains("必殺") || msg.contains("ひっさつ") {
         return Some("crit");
     }
     if msg.contains("たおした") || msg.contains("うごけなくなった") {

@@ -324,7 +324,7 @@ pub fn equip_effects(name: &str) -> String {
         v.push("男性は そうびできない".to_string());
     }
     if atk_bonus(name) > 0 {
-        v.push(format!("攻撃力+{}", atk_bonus(name)));
+        v.push(format!("ATK+{}", atk_bonus(name)));
     }
     match d.ring {
         1 => v.push(format!("つよさ+{}", d.power)),

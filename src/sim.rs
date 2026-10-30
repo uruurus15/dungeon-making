@@ -2571,7 +2571,7 @@ impl Battle {
         self.elem_all(g, alive, who, skill, base, elem, false)
     }
 
-    /// 1人への強い一撃(攻撃力の mul/den 倍)。stun ならふらつく
+    /// 1人への強い一撃(ATKの mul/den 倍)。stun ならふらつく
     fn heavy_hit(&mut self, g: &mut Game, t: usize, who: &str, skill: &str, atk: i32, stun: bool) -> Vec<String> {
         let mut dmg = (atk - g.party[t].def()).max(1);
         if self.defending[t] {
@@ -2589,7 +2589,7 @@ impl Battle {
         m
     }
 
-    /// 全員への物理攻撃(攻撃力 atk)。ふらつき付き
+    /// 全員への物理攻撃(ATK atk)。ふらつき付き
     fn all_hit(&mut self, g: &mut Game, alive: &[usize], who: &str, skill: &str, atk: i32, stun: bool) -> Vec<String> {
         self.elem_all(g, alive, who, skill, atk, 3, stun)
     }
@@ -2700,7 +2700,7 @@ impl Battle {
                     return m;
                 }
             }
-            // 6F〜10F のボス(技の強さは攻撃力に比例)
+            // 6F〜10F のボス(技の強さはATKに比例)
             "debrin" => {
                 if g.rng.chance(30) {
                     return self.elem_all(g, &alive, name, "ほのおのつぼ", atk * 11 / 10, 0, false);
@@ -2953,7 +2953,7 @@ impl Battle {
             let en = self.enemies[k].def.name;
             let rnd = g.rng.range(-1, 1);
             let crit = g.rng.chance(crit_pct);
-            // ひっさつは 相手の防御力を 無視する(攻撃力そのままの 2倍)
+            // ひっさつは 相手のDEFを 無視する(ATKそのままの 2倍)
             let raw = if crit { (atk + rnd).max(1) * CRIT_MULT } else { (atk - self.enemies[k].defense() + rnd).max(1) };
             let mut dmg = raw * self.weak_mult(k, elem, slay);
             if fx.weak_vs_water && is_water(self.enemies[k].def.id) {
@@ -2962,7 +2962,7 @@ impl Battle {
             }
             let head = if all && targets.len() > 1 { String::new() } else { format!("{} の こうげき! ", name) };
             if crit {
-                msgs.push(format!("{}ひっさつの一撃! {} に {} のダメージ!", head, en, dmg));
+                msgs.push(format!("{}必殺の一撃! {} に {} のダメージ!", head, en, dmg));
             } else {
                 msgs.push(format!("{}{} に {} のダメージ!", head, en, dmg));
             }
@@ -2976,7 +2976,7 @@ impl Battle {
         if fx.multi > 0 && self.enemies[t].hp > 0 && g.rng.chance(fx.multi) {
             let d2 = ((atk - self.enemies[t].defense() + g.rng.range(-1, 1)).max(1)) * self.weak_mult(t, elem, slay);
             self.hit_enemy(t, d2);
-            msgs.push(format!("れんぞくこうげき! {} に {} のダメージ!", en, d2));
+            msgs.push(format!("連続攻撃! {} に {} のダメージ!", en, d2));
             if self.enemies[t].hp <= 0 {
                 msgs.push(format!("{} を たおした!", en));
             }
