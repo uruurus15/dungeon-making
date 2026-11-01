@@ -599,10 +599,11 @@ fn fx_sources(name: &str) -> Vec<&'static ItemDef> {
     v
 }
 
-/// 合成の 素材に できる 武器(特殊な 能力を もつ 武器)か。+も 合成も していない もとの 名前で 調べる
+/// 合成の 素材に できる 武器(特殊な 能力を もつ 武器)か。+も 合成も していない もとの 名前で 調べる。
+/// 「敵全員を攻撃」の 能力の 武器は 本体にしか できない(素材に できない)
 pub fn fuse_donor_ok(name: &str) -> bool {
     let Some(d) = ITEMS.iter().find(|i| i.name == name && i.kind == Kind::Weapon) else { return false };
-    fx_of(d) != WFx::default() || crit_one(d) > 0 || slay_one(d) > 1
+    fx_of(d).all == 0 && (fx_of(d) != WFx::default() || crit_one(d) > 0 || slay_one(d) > 1)
 }
 
 /// 初期の武具屋の品揃え(売却すると増える)

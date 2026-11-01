@@ -3591,7 +3591,7 @@ fn fused_weapon_merges_effects_without_changing_the_base_rates() {
     assert_eq!(weapon_fx(&dagger).multi, weapon_fx("ワーネコダッガー").multi);
     assert_eq!(weapon_fx(&dagger).all, 20);
     // 能力の 無い 武器は 素材に できない(ナイフ)
-    assert!(fuse_donor_ok("ハンドアクス"));
+    assert!(fuse_donor_ok("ヌンチャク"));
     let plain = ITEMS.iter().filter(|d| d.kind == Kind::Weapon && !fuse_donor_ok(d.name)).count();
     assert!(plain > 0, "能力の ない 武器は 素材に できない");
 }
@@ -3602,8 +3602,8 @@ fn forge_unlock_needs_all_nine_elements_and_ability_fusion_costs_by_slot() {
     g.reached = 11;
     g.gold = 1_000_000;
     g.add_item("ナイフ", 1);
-    g.add_item("ハンドアクス", 2);
-    assert!(g.fuse_ability("ナイフ", 0, "ハンドアクス").is_err(), "ひらく前は 合成できない");
+    g.add_item("ブラックダッガー", 2);
+    assert!(g.fuse_ability("ナイフ", 0, "ブラックダッガー").is_err(), "ひらく前は 合成できない");
     for e in ELEMENTS.iter().take(8) {
         g.add_item(e, 1);
     }
@@ -3614,17 +3614,17 @@ fn forge_unlock_needs_all_nine_elements_and_ability_fusion_costs_by_slot() {
     assert!(g.forge_open() && g.elements_have() == 0, "エレメントは わたして なくなる");
     // 1枠目 30000G
     let before = g.gold;
-    let n1 = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    let n1 = g.fuse_ability("ナイフ", 0, "ブラックダッガー").unwrap();
     assert_eq!(before - g.gold, 30000);
-    assert_eq!(n1, "ナイフ《ハンドアクス|》");
-    assert_eq!((g.count("ナイフ"), g.count("ハンドアクス"), g.count(&n1)), (0, 1, 1));
+    assert_eq!(n1, "ナイフ《ブラックダッガー|》");
+    assert_eq!((g.count("ナイフ"), g.count("ブラックダッガー"), g.count(&n1)), (0, 1, 1));
     // 2枠目 50000G。おなじ 能力は 重ねられない
-    assert!(g.fuse_ability(&n1, 1, "ハンドアクス").is_err());
+    assert!(g.fuse_ability(&n1, 1, "ブラックダッガー").is_err());
     g.add_item("ヌンチャク", 1);
     let before = g.gold;
     let n2 = g.fuse_ability(&n1, 1, "ヌンチャク").unwrap();
     assert_eq!(before - g.gold, 50000);
-    assert_eq!(n2, "ナイフ《ハンドアクス|ヌンチャク》");
+    assert_eq!(n2, "ナイフ《ブラックダッガー|ヌンチャク》");
     // 合成ずみの 武器は 素材に できない。能力の ない 武器も
     g.add_item("ナイフ", 1);
     assert!(g.fuse_ability("ナイフ", 0, &n2).is_err() && g.fuse_ability("ナイフ", 0, "ナイフ").is_err());
@@ -3632,7 +3632,7 @@ fn forge_unlock_needs_all_nine_elements_and_ability_fusion_costs_by_slot() {
     g.add_item("ハデスソード", 1);
     let n3 = g.fuse_ability(&n2, 0, "ハデスソード").unwrap();
     assert_eq!(n3, "ナイフ《ハデスソード|ヌンチャク》");
-    assert_eq!(g.count("ハンドアクス"), 1, "上書きされた 能力の 武器は もどらない");
+    assert_eq!(g.count("ブラックダッガー"), 1, "上書きされた 能力の 武器は もどらない");
     // はずす(ただ)。枠ごとに
     let before = g.gold;
     let n4 = g.fuse_remove(&n3, 0).unwrap();
@@ -3642,7 +3642,7 @@ fn forge_unlock_needs_all_nine_elements_and_ability_fusion_costs_by_slot() {
     assert!(g.fuse_remove(&n5, 0).is_err());
     // お金が足りないと できない
     g.gold = 29999;
-    assert!(g.fuse_ability("ナイフ", 0, "ハンドアクス").is_err());
+    assert!(g.fuse_ability("ナイフ", 0, "ブラックダッガー").is_err());
 }
 
 #[test]
@@ -3685,11 +3685,11 @@ fn plus_fusion_goes_from_5_to_9_with_rising_cost_and_same_weapon_only() {
 fn equipped_fused_weapon_works_and_save_round_trips() {
     let mut g = forge_game(303);
     g.add_item("ナイフ", 1);
-    g.add_item("ハンドアクス", 1);
-    let n = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    g.add_item("ブラックダッガー", 1);
+    let n = g.fuse_ability("ナイフ", 0, "ブラックダッガー").unwrap();
     g.equip(0, &n).unwrap();
     assert_eq!(g.party[0].equip[0].as_deref(), Some(n.as_str()));
-    assert_eq!(weapon_fx(&n).all, 20);
+    assert_eq!(weapon_fx(&n).poison, weapon_fx("ブラックダッガー").poison);
     // 外すと 持ち物に もどる。所持品の 一覧にも 出る
     g.unequip(0, 0);
     assert!(g.owned_defs().iter().any(|d| d.name == n));
@@ -3821,9 +3821,9 @@ fn equipped_weapons_can_be_fused_and_are_worn_again() {
     let mut g = forge_game(311);
     // はじめから アレンは ナイフを そうびしている(持ち物には ない)
     assert_eq!((g.party[0].equip[0].as_deref(), g.count("ナイフ")), (Some("ナイフ"), 0));
-    g.add_item("ハンドアクス", 1);
+    g.add_item("ブラックダッガー", 1);
     assert!(g.forge_weapon_names().contains(&"ナイフ".to_string()));
-    let n = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    let n = g.fuse_ability("ナイフ", 0, "ブラックダッガー").unwrap();
     assert_eq!(g.party[0].equip[0].as_deref(), Some(n.as_str()), "できた武器を つけ直す");
     assert_eq!(g.count("ナイフ"), 0);
     // 失敗したら もとの 武器を つけ直す
@@ -3844,7 +3844,26 @@ fn equipped_weapons_can_be_fused_and_are_worn_again() {
     assert_eq!(g.party[0].equip[0].as_deref(), Some("ナイフ+6"));
     assert_eq!(g.count("ナイフ+5"), 0);
     // 素材が そうび中でも つかえる(もちぬしは 空になる)
-    g.add_item("ハンドアクス", 1);
-    g.equip(1, "ハンドアクス").ok();
+    g.add_item("ブラックダッガー", 1);
+    g.equip(1, "ブラックダッガー").ok();
 }
 
+
+#[test]
+fn all_target_weapons_can_only_be_the_main_weapon() {
+    let mut g = forge_game(312);
+    for n in ["ハンドアクス", "メイデンスピア", "ワルキリースピア"] {
+        assert!(!fuse_donor_ok(n), "{}", n);
+    }
+    assert!(fuse_donor_ok("ヌンチャク") && fuse_donor_ok("ブラックダッガー"));
+    g.add_item("ナイフ", 1);
+    g.add_item("ハンドアクス", 1);
+    assert!(g.fuse_ability("ナイフ", 0, "ハンドアクス").is_err());
+    assert_eq!(g.count("ハンドアクス"), 1);
+    // 全体攻撃の武器が 本体なら ヌンチャクの 追い打ちで 全体攻撃が 2回 出てよい
+    g.add_item("メイデンスピア", 1);
+    g.add_item("ヌンチャク", 1);
+    let n = g.fuse_ability("メイデンスピア", 0, "ヌンチャク").unwrap();
+    let fx = weapon_fx(&n);
+    assert!(fx.all == 100 && fx.follow_all);
+}

@@ -2009,6 +2009,9 @@ impl Game {
             return Err("合成ずみの 武器は 素材に できない".to_string());
         }
         let dbase = base_name(dm);
+        if weapon_fx(dbase).all > 0 {
+            return Err("敵全員を攻撃する能力は 本体にしか できない".to_string());
+        }
         if !fuse_donor_ok(dbase) {
             return Err("その武器には 特殊な能力が ない".to_string());
         }
