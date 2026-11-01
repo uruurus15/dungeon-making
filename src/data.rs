@@ -453,6 +453,16 @@ fn plus_value(base: i32, k: i32) -> i32 {
     (base * (100 + 6 * k) + 99) / 100
 }
 
+/// +k の ATK・DEF: 上の 式に くわえて、+1ごとに 最低1は あがる(もとが 小さいと 切り上げでも 同じ値に なるため)。ゆびわの 能力値は 式のまま
+fn plus_power(base: i32, k: i32, ring: u8) -> i32 {
+    let v = plus_value(base, k);
+    if ring == 0 && base > 0 {
+        v.max(base + k)
+    } else {
+        v
+    }
+}
+
 pub fn item(name: &str) -> Option<&'static ItemDef> {
     if let Some(d) = ITEMS.iter().find(|i| i.name == name) {
         return Some(d);
@@ -474,7 +484,7 @@ pub fn item(name: &str) -> Option<&'static ItemDef> {
         return None;
     }
     let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());
-    let d: &'static ItemDef = Box::leak(Box::new(ItemDef { name: leaked, kind: b.kind, buy: plus_value(b.buy, k), sell: plus_value(b.sell, k), power: plus_value(b.power, k), ring: b.ring, desc: b.desc }));
+    let d: &'static ItemDef = Box::leak(Box::new(ItemDef { name: leaked, kind: b.kind, buy: plus_value(b.buy, k), sell: plus_value(b.sell, k), power: plus_power(b.power, k, b.ring), ring: b.ring, desc: b.desc }));
     c.insert(name.to_string(), d);
     Some(d)
 }

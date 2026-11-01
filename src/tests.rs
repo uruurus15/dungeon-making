@@ -2760,7 +2760,8 @@ fn plus_equipment_is_six_percent_stronger_per_step_rounded_up() {
     let base = item("ナイフ").unwrap();
     for k in 1..=5 {
         let d = item(&format!("ナイフ+{}", k)).unwrap();
-        assert_eq!(d.power, (base.power * (100 + 6 * k) + 99) / 100, "+{}", k);
+        // 6%増(切り上げ)。ただし +1 ごとに 最低1は あがる
+        assert_eq!(d.power, ((base.power * (100 + 6 * k) + 99) / 100).max(base.power + k), "+{}", k);
         assert_eq!(d.kind, base.kind);
     }
     // +5 は 30% 増(切り上げ)
@@ -3504,4 +3505,18 @@ fn favorite_auto_meal_uses_only_favorites() {
     let out = g.auto_meals_from(true);
     assert!(out.iter().any(|m| m.contains("ホウレンソウサラダ") || !m.contains("ない")), "{:?}", out);
     assert!(g.ate[0]);
+}
+
+#[test]
+fn each_plus_level_raises_atk_def_by_at_least_one() {
+    for d in ITEMS.iter().filter(|d| d.kind.is_equip() && d.ring == 0 && d.power > 0) {
+        let mut prev = d.power;
+        for k in 1..=MAX_MIASMA {
+            let p = item(&format!("{}+{}", d.name, k)).expect(d.name).power;
+            assert!(p >= prev + 1, "{}+{} の 能力 {} が +{} と 同じか 低い({})", d.name, k, p, k - 1, prev);
+            prev = p;
+        }
+    }
+    assert_eq!(item("かわのブーツ+4").unwrap().power, 7);
+    assert_eq!(item("かわのブーツ+5").unwrap().power, 8);
 }
