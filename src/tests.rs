@@ -3456,3 +3456,52 @@ fn nunchaku_and_kamaitachi_hit_everyone() {
     attacks(&mut g, &mut b, 60);
     assert!(b.enemies[0].sealed);
 }
+
+#[test]
+fn chests_start_empty_and_miasma_never_adds_plus_to_chest_items() {
+    // 置いた宝箱は からっぽ。鍵があっても 開けられない(中身は あとで たまる)
+    let mut g = Game::new(21);
+    g.mp = 50;
+    g.add_item("てつのたからばこ", 1);
+    g.add_item("鉄のカギ", 3);
+    for y in 8..=10 {
+        g.dungeon.set(8, y, Tile::Floor);
+    }
+    g.pos = (8, 10);
+    g.facing = Dir::Up;
+    g.place_room("てつのたからばこ").unwrap();
+    assert!(g.dungeon.rooms[0].chest_open, "置いた ばかりは からっぽ");
+    assert_eq!(g.dungeon.rooms[0].refill, CHESTS[0].refill_days);
+    g.pos = (8, 10);
+    assert!(matches!(g.check_encounter(), StepResult::Moved));
+    assert_eq!(g.count("鉄のカギ"), 3, "からっぽの宝箱では カギを つかわない");
+    // 瘴気発生装置が 5つ あっても、宝箱の中身に +は つかない
+    for i in 0..5 {
+        g.dungeon.rooms.push(Room { x: 2 + i, y: 2, w: 1, h: 1, front: (2 + i, 2), kind: MIASMA_ROOM.into(), door: Dir::Down, open4: false, mons: vec![None], chest_open: false, refill: 0 });
+    }
+    assert_eq!(g.miasma_count(), 5);
+    for _ in 0..200 {
+        g.dungeon.rooms[0].chest_open = false;
+        g.add_item("鉄のカギ", 1);
+        g.pos = (8, 10);
+        g.check_encounter();
+    }
+    assert!(g.inv.len() > 2, "宝箱から 何か 出ている {:?}", g.inv);
+    assert!(g.inv.keys().all(|n| !n.contains('+')), "宝箱から + の装備は 出ない: {:?}", g.inv.keys().filter(|n| n.contains('+')).collect::<Vec<_>>());
+}
+
+#[test]
+fn favorite_auto_meal_uses_only_favorites() {
+    let mut g = Game::new(22);
+    g.add_item("ホウレンソウ", 5);
+    // ホウレンソウサラダだけ 作れる状態で、お気に入りに別の料理だけ入れる → 食べさせない
+    g.fav_recipes.insert("メザシ".to_string());
+    let out = g.auto_meals_from(true);
+    assert!(out[0].contains("お気に入りの料理がない"), "{:?}", out);
+    assert!(g.ate.iter().all(|a| !*a));
+    // お気に入りに ホウレンソウサラダを 入れれば 食べる
+    g.fav_recipes.insert("ホウレンソウサラダ".to_string());
+    let out = g.auto_meals_from(true);
+    assert!(out.iter().any(|m| m.contains("ホウレンソウサラダ") || !m.contains("ない")), "{:?}", out);
+    assert!(g.ate[0]);
+}

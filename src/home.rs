@@ -129,7 +129,8 @@ impl App {
                 let shown: Vec<&Recipe> = order.iter().copied().filter(|r| !st.fav_tab || self.g.fav_recipes.contains(r.name)).collect();
                 // 空きの タブ: 下の 見えないマスに カーソルが 残らないように
                 st.menu.cursor = st.menu.cursor.min(shown.len());
-                let mut rows = vec![Row::new("おまかせ(まだ食べてない人みんな)").right("1回で全員").enabled(!self.g.ate.iter().all(|a| *a))];
+                let auto_label = if st.fav_tab { "おまかせ(お気に入りの中から)" } else { "おまかせ(まだ食べてない人みんな)" };
+                let mut rows = vec![Row::new(auto_label).right("1回で全員").enabled(!self.g.ate.iter().all(|a| *a))];
                 for r in shown.iter().copied() {
                     let known = self.g.recipes.contains(r.name);
                     let can = self.g.can_cook(r);
@@ -157,7 +158,8 @@ impl App {
                 msgbox(10.0, SH + 300.0, LW - 20.0, 118.0);
                 let r = shown.get(st.menu.cursor.saturating_sub(1));
                 if st.menu.cursor == 0 {
-                    ui.text_wrap("まだ食べていない人それぞれに、作れる中でいちばん伸びる料理を食べさせるよ。", 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
+                    let t = if st.fav_tab { "まだ食べていない人それぞれに、お気に入りの料理の中から、作れていちばん伸びる料理を食べさせるよ。" } else { "まだ食べていない人それぞれに、作れる中でいちばん伸びる料理を食べさせるよ。" };
+                    ui.text_wrap(t, 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
                 } else if let Some(r) = r.filter(|r| self.g.recipes.contains(r.name)) {
                     let needs: Vec<String> = r.needs.iter().map(|n| format!("{}({})", n, self.g.count(n))).collect();
                     ui.text_wrap(&format!("ざいりょう: {}", needs.join(" + ")), 26.0, SH + 310.0, LW - 52.0, 19.0, CREAM, 25.0);
@@ -169,7 +171,7 @@ impl App {
                 }
                 match ev {
                     MenuEv::Confirm(0) => {
-                        let msgs = self.g.auto_meals();
+                        let msgs = self.g.auto_meals_from(st.fav_tab);
                         self.ui.audio.sfx("eat");
                         st.msg = msgs.join("
 ");

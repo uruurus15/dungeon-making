@@ -1364,8 +1364,9 @@ impl Game {
             door: self.facing.opposite(),
             open4: def.open4,
             mons: vec![None; def.w * def.h],
-            chest_open: false,
-            refill: 0,
+            // 宝箱は 置いた ときは からっぽ(あけたあと と おなじ)。魔物が すみついて 日数が たつと 中身が たまる
+            chest_open: chest_tier(kind).is_some(),
+            refill: chest_tier(kind).map(|t| CHESTS[t].refill_days).unwrap_or(0),
         };
         let warn = self.no_spawn_room(&room);
         self.dungeon.rooms.push(room);
@@ -1810,6 +1811,11 @@ impl Game {
 
     /// 食事のおまかせ: まだ食べていない人それぞれに、作れる中でいちばん伸びる料理を食べさせる
     pub fn auto_meals(&mut self) -> Vec<String> {
+        self.auto_meals_from(false)
+    }
+
+    /// おまかせ。only_fav=true なら お気に入りの 料理の中からだけ えらぶ
+    pub fn auto_meals_from(&mut self, only_fav: bool) -> Vec<String> {
         let mut out = vec![];
         for who in 0..self.party.len() {
             if self.ate[who] || !self.party[who].joined {
@@ -1817,6 +1823,9 @@ impl Game {
             }
             let mut best: Option<(&Recipe, i32)> = None;
             for r in RECIPES {
+                if only_fav && !self.fav_recipes.contains(r.name) {
+                    continue;
+                }
                 if self.can_cook(r) {
                     let score: i32 = r.gain.iter().sum();
                     if best.map(|b| score > b.1).unwrap_or(true) {
@@ -1831,7 +1840,11 @@ impl Game {
                     }
                 }
                 None => {
-                    out.push(format!("{} に 食べさせられる料理がない", self.party[who].name));
+                    out.push(if only_fav {
+                        format!("{} に 食べさせられる お気に入りの料理がない", self.party[who].name)
+                    } else {
+                        format!("{} に 食べさせられる料理がない", self.party[who].name)
+                    });
                     break;
                 }
             }
