@@ -249,8 +249,9 @@ DS「ダンジョンメーカー 魔法のシャベルと小さな勇者」を�
   - 効果は 本体の効果と あわせて 戦闘に 反映(確率は 大きいほう、あるなしは どちらかあれば あり。素材の 言い回しで 本体の確率は かわらない)。ATK は 本体の +だけで 決まる
   - 素材に できないもの: 能力の ない武器・合成ずみの武器・本体と おなじ武器。おなじ能力を 2枠に つけることも できない
 - **武器強化合成**: **おなじ武器**で **おなじ+**の 2本を あわせて +1。**+5+5→+6、+6+6→+7、+7+7→+8、+8+8→+9**(最大+9)。費用は +6:20000G / +7:40000G / +8:80000G / +9:150000G(設計値)。本体の 合成枠は のこり、素材の枠は きえる
+- **そうび中の武器も 合成できる**(一覧に「そうび中」と出る。合成の間だけ はずして、できた武器を そうびし直す。失敗しても もとに もどる)。売ると 本体の +ぶんの 値段だけ(合成の費用は もどらない)
 - 武器の名前に 合成の枠を 埋め込んでいる(`ナイフ+6《ハンドアクス|ヌンチャク》`。`data.rs` の `fuse_split`/`fuse_join`)ので セーブは そのまま。画面には `ナイフ+6◆◆`(◆=ついた能力の数)と 短く 出して、説明に 中身を 出す
-- 確認用: `--screen forge_<lock|talk|main|menu|fmain|fslot|fdonor|pmain|pmat|smain|sslot|ok|okp|oks>`
+- 確認用: `--screen equip_fused`(合成した武器を そうび)/ `--screen forge_<lock|talk|main|menu|fmain|fslot|fdonor|pmain|pmat|smain|sslot|ok|okp|oks>`
 
 ## Web版(GitHub Pages)
 - ビルド: `cargo build --release --target wasm32-unknown-unknown` → `python tools/pack_web.py`(`docs/` に index.html・wasm・JS・assets.pack(画像・音・フォントを1つに)ができる)

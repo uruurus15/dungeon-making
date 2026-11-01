@@ -82,7 +82,16 @@ fn parent(p: Page) -> Page {
 
 /// 合成で 本体に できる 武器(持っている 武器すべて)
 fn forge_weapons(g: &Game) -> Vec<String> {
-    g.owned_defs().into_iter().filter(|d| d.kind == Kind::Weapon).map(|d| d.name.to_string()).collect()
+    g.forge_weapon_names()
+}
+
+/// 一覧の 右がわ: 持ち物の 数、持ち物に なく そうび中なら 「そうび中」
+fn qty(g: &Game, n: &str) -> String {
+    if g.count(n) > 0 {
+        format!("x{}", g.count(n))
+    } else {
+        "そうび中".to_string()
+    }
 }
 
 /// 能力の 素材に できる 武器(合成ずみでなく、特殊な 能力が あり、本体と ちがう 武器)
@@ -365,7 +374,7 @@ impl App {
             }
             Page::FuseMain => {
                 for n in forge_weapons(g) {
-                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::FMain(n)));
+                    rows.push((Row::new(disp_name(&n)).right(qty(g, &n)), Act::FMain(n)));
                 }
             }
             Page::FuseSlot => {
@@ -377,7 +386,7 @@ impl App {
             }
             Page::FuseDonor => {
                 for n in donor_weapons(g, &st.fmain) {
-                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::FDonor(n)));
+                    rows.push((Row::new(disp_name(&n)).right(qty(g, &n)), Act::FDonor(n)));
                 }
             }
             Page::PlusMain => {
@@ -388,12 +397,12 @@ impl App {
             }
             Page::PlusMat => {
                 for n in plus_mats(g, &st.fmain) {
-                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::PMat(n)));
+                    rows.push((Row::new(disp_name(&n)).right(qty(g, &n)), Act::PMat(n)));
                 }
             }
             Page::StripMain => {
                 for n in forge_weapons(g).into_iter().filter(|n| fuse_split(n).1.iter().any(|s| s.is_some())) {
-                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::SMain(n)));
+                    rows.push((Row::new(disp_name(&n)).right(qty(g, &n)), Act::SMain(n)));
                 }
             }
             Page::StripSlot => {

@@ -3815,3 +3815,36 @@ fn armor_shop_sister_brings_up_the_elements_once_after_11f() {
     // 開いたあとの お礼の 台詞に 料金が 書いてある
     assert!(forge_open_lines().iter().any(|l| l.contains("30000G") && l.contains("50000G")));
 }
+
+#[test]
+fn equipped_weapons_can_be_fused_and_are_worn_again() {
+    let mut g = forge_game(311);
+    // はじめから アレンは ナイフを そうびしている(持ち物には ない)
+    assert_eq!((g.party[0].equip[0].as_deref(), g.count("ナイフ")), (Some("ナイフ"), 0));
+    g.add_item("ハンドアクス", 1);
+    assert!(g.forge_weapon_names().contains(&"ナイフ".to_string()));
+    let n = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    assert_eq!(g.party[0].equip[0].as_deref(), Some(n.as_str()), "できた武器を つけ直す");
+    assert_eq!(g.count("ナイフ"), 0);
+    // 失敗したら もとの 武器を つけ直す
+    g.gold = 0;
+    g.add_item("ヌンチャク", 1);
+    assert!(g.fuse_ability(&n, 1, "ヌンチャク").is_err());
+    assert_eq!(g.party[0].equip[0].as_deref(), Some(n.as_str()));
+    // はずす
+    let m = g.fuse_remove(&n, 0).unwrap();
+    assert_eq!(g.party[0].equip[0].as_deref(), Some(m.as_str()));
+    // 強化合成: 1本は そうび中、1本は 持ち物
+    g.gold = 1_000_000;
+    g.unequip(0, 0);
+    g.add_item("ナイフ+5", 2);
+    g.equip(0, "ナイフ+5").unwrap();
+    let up = g.fuse_plus("ナイフ+5", "ナイフ+5").unwrap();
+    assert_eq!(up, "ナイフ+6");
+    assert_eq!(g.party[0].equip[0].as_deref(), Some("ナイフ+6"));
+    assert_eq!(g.count("ナイフ+5"), 0);
+    // 素材が そうび中でも つかえる(もちぬしは 空になる)
+    g.add_item("ハンドアクス", 1);
+    g.equip(1, "ハンドアクス").ok();
+}
+

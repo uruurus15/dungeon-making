@@ -572,9 +572,10 @@ pub fn item(name: &str) -> Option<&'static ItemDef> {
         let mut parts: Vec<String> = vec![];
         for s in slots.iter().flatten() {
             let donor = ITEMS.iter().find(|i| i.name == *s && i.kind == Kind::Weapon)?;
-            parts.push(format!("{}:{}", donor.name, donor.desc));
+            parts.push(donor.name.to_string());
         }
-        desc = format!("{}\n合成: {}", b.desc, parts.join(" / "));
+        // 効果の 数字は 「効果:」の行(equip_effects)に あわせて 出る。ここは 素材の 名前だけ
+        desc = format!("{}\n合成: {}", b.desc, parts.join("・"));
     }
     let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());
     let desc: &'static str = if desc == b.desc { b.desc } else { Box::leak(desc.into_boxed_str()) };

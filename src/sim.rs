@@ -1946,12 +1946,37 @@ impl Game {
         Ok(())
     }
 
+    /// 持っている 武器の 数(そうび中の ものも ふくむ)
+    pub fn have_weapon(&self, name: &str) -> i32 {
+        self.count(name) + self.party.iter().filter(|m| m.equip[0].as_deref() == Some(name)).count() as i32
+    }
+
+    /// そうび中の 武器を 持ち物に もどす(合成の 本体・素材に するため)。need 本 そろうまで。もどした 人を 返す
+    fn bag_equipped(&mut self, name: &str, need: i32) -> Vec<usize> {
+        let mut v = vec![];
+        while self.count(name) < need {
+            let Some(w) = (0..self.party.len()).find(|&i| self.party[i].equip[0].as_deref() == Some(name)) else { break };
+            self.unequip(w, 0);
+            v.push(w);
+        }
+        v
+    }
+
+    /// 合成の あと、もどした 人に そうびし直す(成功なら 新しい武器、失敗なら もとの武器)
+    fn rewear(&mut self, who: &[(usize, String)]) {
+        for (w, n) in who {
+            if self.party[*w].equip[0].is_none() {
+                let _ = self.equip(*w, n);
+            }
+        }
+    }
+
     /// 合成の 本体に できる 武器(もっていて、武器)か
     fn forge_main(&self, name: &str) -> Result<(), String> {
         if !self.forge_open() {
             return Err("まだ 合成は できない".to_string());
         }
-        if self.count(name) < 1 || item(name).map(|d| d.kind != Kind::Weapon).unwrap_or(true) {
+        if self.have_weapon(name) < 1 || item(name).map(|d| d.kind != Kind::Weapon).unwrap_or(true) {
             return Err("その武器は 持っていない".to_string());
         }
         Ok(())
@@ -1959,6 +1984,21 @@ impl Game {
 
     /// 能力の 合成: main(武器)の 枠 slot(0=1枠目 1=2枠目)に、donor(武器)の 能力を つける。donor は なくなる。もともと ついていた 能力は 上書き
     pub fn fuse_ability(&mut self, main: &str, slot: usize, donor: &str) -> Result<String, String> {
+        // そうび中の 武器も 使える(もどして 合成して、できた 武器を そうびし直す)
+        let hm: Vec<(usize, String)> = self.bag_equipped(main, 1 + (donor == main) as i32).into_iter().map(|w| (w, main.to_string())).collect();
+        let hd: Vec<(usize, String)> = if donor != main { self.bag_equipped(donor, 1).into_iter().map(|w| (w, donor.to_string())).collect() } else { vec![] };
+        let r = self.fuse_ability_core(main, slot, donor);
+        match &r {
+            Ok(new) => self.rewear(&hm.iter().take(1).map(|(w, _)| (*w, new.clone())).collect::<Vec<_>>()),
+            Err(_) => {
+                self.rewear(&hm);
+                self.rewear(&hd);
+            }
+        }
+        r
+    }
+
+    fn fuse_ability_core(&mut self, main: &str, slot: usize, donor: &str) -> Result<String, String> {
         self.forge_main(main)?;
         if slot >= FUSE_SLOTS {
             return Err("そんな枠は ない".to_string());
@@ -1999,6 +2039,16 @@ impl Game {
 
     /// 枠 slot の 能力を はずす(ただ)。素材は もどらない
     pub fn fuse_remove(&mut self, main: &str, slot: usize) -> Result<String, String> {
+        let hm: Vec<(usize, String)> = self.bag_equipped(main, 1).into_iter().map(|w| (w, main.to_string())).collect();
+        let r = self.fuse_remove_core(main, slot);
+        match &r {
+            Ok(new) => self.rewear(&hm.iter().take(1).map(|(w, _)| (*w, new.clone())).collect::<Vec<_>>()),
+            Err(_) => self.rewear(&hm),
+        }
+        r
+    }
+
+    fn fuse_remove_core(&mut self, main: &str, slot: usize) -> Result<String, String> {
         self.forge_main(main)?;
         let (m, mut slots) = fuse_split(main);
         if slot >= FUSE_SLOTS || slots[slot].is_none() {
@@ -2014,7 +2064,7 @@ impl Game {
     /// 武器強化合成の 条件を しらべる: (できあがる 名前, 費用)。おなじ武器で おなじ +の 数(5〜8)どうし
     pub fn plus_fuse_plan(&self, main: &str, mat: &str) -> Result<(String, i32), String> {
         self.forge_main(main)?;
-        if self.count(mat) < 1 + (mat == main) as i32 {
+        if self.have_weapon(mat) < 1 + (mat == main) as i32 {
             return Err("素材の武器を 持っていない".to_string());
         }
         let (m, slots) = fuse_split(main);
@@ -2042,6 +2092,19 @@ impl Game {
         if self.gold < cost {
             return Err("おかねが たりない".to_string());
         }
+        // そうび中の 武器も 使える。できた 武器は 本体を つけていた 人が そうびし直す
+        let hm: Vec<usize> = self.bag_equipped(main, 1 + (mat == main) as i32);
+        if mat != main {
+            self.bag_equipped(mat, 1);
+        }
+        if let Some(&w) = hm.first() {
+            self.gold -= cost;
+            self.take_item(main, 1);
+            self.take_item(mat, 1);
+            self.add_item(&new, 1);
+            self.rewear(&[(w, new.clone())]);
+            return Ok(new);
+        }
         self.gold -= cost;
         self.take_item(main, 1);
         self.take_item(mat, 1);
@@ -2052,6 +2115,19 @@ impl Game {
     // ----- 装備 -----
 
     /// 持っている 品物の 定義(「ナイフ+3」のような +つきも ふくむ)
+    /// 合成に つかえる 武器の 名前(持ち物 + そうび中)
+    pub fn forge_weapon_names(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.owned_defs().into_iter().filter(|d| d.kind == Kind::Weapon).map(|d| d.name.to_string()).collect();
+        for m in &self.party {
+            if let Some(n) = &m.equip[0] {
+                if !v.contains(n) {
+                    v.push(n.clone());
+                }
+            }
+        }
+        v
+    }
+
     pub fn owned_defs(&self) -> Vec<&'static ItemDef> {
         let mut v: Vec<&'static ItemDef> = ITEMS.iter().filter(|d| self.count(d.name) > 0).collect();
         // +つき・合成ずみの 装備(ITEMS に そのままの 名前では 無いもの)

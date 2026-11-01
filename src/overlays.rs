@@ -278,8 +278,8 @@ impl App {
                     // いま つけている 装備の 説明(カーソルの スロット)
                     let slot_cur = menu.cursor.min(5);
                     if let Some(n) = self.g.party[*who].equip[slot_cur].clone() {
-                        draw_rectangle(10.0, SH + 322.0, LW - 20.0, 52.0, rgba(24, 18, 10, 235));
-                        draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 52.0, 2.0, rgb(232, 192, 64));
+                        draw_rectangle(10.0, SH + 322.0, LW - 20.0, 68.0, rgba(24, 18, 10, 235));
+                        draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 68.0, 2.0, rgb(232, 192, 64));
                         self.ui.text_wrap(&format!("{}: {}", disp_name(&n), item_help(&n)), 20.0, SH + 326.0, LW - 40.0, 16.0, CREAM, 20.0);
                     }
                     if self.g.party[*who].is_slime {

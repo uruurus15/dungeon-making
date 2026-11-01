@@ -346,7 +346,11 @@ pub fn item_help(name: &str) -> String {
             let eff = equip_effects(name);
             // 特殊効果が ある 装備は 「効果: 炎耐性30」を 足す(説明文に 同じ 数字が あれば 重ねない)
             let eff_txt = if eff.is_empty() || d.desc.contains(&eff) { String::new() } else { format!("\n効果: {}", eff) };
-            format!("{}{}{}", d.desc, extra, eff_txt)
+            // 合成ずみの 武器は 説明文が 2行(元の説明 / 合成: 素材)。ATKは 1行めに つける
+            match d.desc.split_once('\n') {
+                Some((first, rest)) => format!("{}{}\n{}{}", first, extra, rest, eff_txt),
+                None => format!("{}{}{}", d.desc, extra, eff_txt),
+            }
         }
         None => String::new(),
     }

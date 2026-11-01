@@ -529,6 +529,16 @@ impl App {
                 self.scr = Scr::Town(town::TownSt::new(None));
                 self.ov = Some(overlays::Overlay::Equip { who: 0, menu: ListMenu::new(), sub: None });
             }
+            "equip_fused" => {
+                // 合成した 武器を そうびして、そうび画面を ひらく(確認用)
+                self.debug = true;
+                self.g.preset(3);
+                self.g.add_item("ナイフ《ハンドアクス|ヌンチャク》", 1);
+                let _ = self.g.equip(0, "ナイフ《ハンドアクス|ヌンチャク》");
+                self.g.add_item("ハンドアクス+6《|ハデスソード》", 1);
+                self.scr = Scr::Town(town::TownSt::new(None));
+                self.ov = Some(overlays::Overlay::Equip { who: 0, menu: ListMenu::new(), sub: None });
+            }
             "tour" => {
                 // はじめからで はじめて町に戻ったところ(あいさつまわり)
                 self.debug = true;
