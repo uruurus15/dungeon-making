@@ -617,6 +617,7 @@ pub fn hand_model(art_name: &str) -> Option<Model> {
         "room_ごうかなベッド" => canopy_bed(true),
         "room_だんろ" => fireplace(),
         "room_けっかいのへや" => barrier_room(),
+        "room_けっかいじん(簡易)" => barrier_room_simple(),
         "room_ふんすい" => fountain(),
         "room_れいはいどう" => chapel(),
         "room_れいぞうこ" => fridge(),
@@ -643,7 +644,7 @@ pub fn has_hand(art_name: &str) -> bool {
 }
 
 fn hand_names() -> &'static [&'static str] {
-    &["room_わらのベッド", "room_ゴミすてば", "room_エサおけ", "room_てつのたからばこ", "room_てつのたからばこ_open", "room_ぎんのたからばこ", "room_ぎんのたからばこ_open", "room_おうごんチェスト", "room_おうごんチェスト_open", "room_さかば", "room_さいだん", "room_いろり", "room_水のみば", "room_りっぱなベッド", "room_ごうかなベッド", "room_だんろ", "room_けっかいのへや", "room_ふんすい", "room_れいはいどう", "room_れいぞうこ", "room_まほうじん", "room_瘴気発生装置", "room_はたけ", "room_はなぞの", "room_どうじょう", "room_じっけんしつ", "room_コロシアム"]
+    &["room_わらのベッド", "room_ゴミすてば", "room_エサおけ", "room_てつのたからばこ", "room_てつのたからばこ_open", "room_ぎんのたからばこ", "room_ぎんのたからばこ_open", "room_おうごんチェスト", "room_おうごんチェスト_open", "room_さかば", "room_さいだん", "room_いろり", "room_水のみば", "room_りっぱなベッド", "room_ごうかなベッド", "room_だんろ", "room_けっかいのへや", "room_けっかいじん(簡易)", "room_ふんすい", "room_れいはいどう", "room_れいぞうこ", "room_まほうじん", "room_瘴気発生装置", "room_はたけ", "room_はなぞの", "room_どうじょう", "room_じっけんしつ", "room_コロシアム"]
 }
 
 /// 何マスぶんの 大きさで 作ってあるか(1 か 3)

@@ -526,6 +526,7 @@ const FURNITURE_TALK: &[(&str, &str)] = &[
     ("コロシアム", "コロシアムは 3x3で4方向から入れる大部屋だ! 強いやつらを呼べるが、置きすぎには気をつけな。"),
     ("れいぞうこ", "れいぞうこは 食べ物系の魔物…キノコトカゲなんかが集まる。氷のフロアづくりにも向くぜ。"),
     ("瘴気発生装置", "瘴気発生装置だ。紫の霧を はきだして、置いた階の魔物を 強くする。5個まで 重ねられるぜ。強くなった魔物は、いい装備を 落とす(+がつく)って話だ。"),
+    ("けっかいじん(簡易)", "けっかいじん(簡易)は 瘴気発生装置を5個置いた階でだけ動く、ボスの呼びなおし装置だ。夜になると その階のボスが 出てくるぜ。倒したボスの エレメントは 武具屋のお姉さんが 欲しがってたな。"),
     ("まほうじん", "まほうじんは 魔法の武具の魔物…マホウノケンなんかが現れる。魔物を強くするとも言うな。"),
 ];
 
@@ -621,6 +622,10 @@ pub fn on_enter(g: &mut Game, kind: ShopKind) -> Vec<String> {
         }
         _ => {}
     }
+    if kind == ShopKind::Armor && forge_pending(g) {
+        g.talks_seen.insert("forge:told".to_string());
+        v.extend(forge_lines());
+    }
     // 3日め以降: 魔物を まとめて 倒すと 獲得品が ふえる(村長の 豆知識。一度だけ)
     if kind == ShopKind::Mayor && battle_tip_pending(g) {
         g.talks_seen.insert("tip:multi".to_string());
@@ -650,10 +655,44 @@ pub fn has_talk(g: &Game, kind: ShopKind) -> bool {
     match kind {
         ShopKind::Furniture => !furniture_lines(g, false).is_empty(),
         ShopKind::Mayor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty() || battle_tip_pending(g),
-        ShopKind::Armor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty(),
+        ShopKind::Armor => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty() || forge_pending(g),
         ShopKind::Magic => !pending_orders(g, kind).is_empty() || !remind_pending(g, kind).is_empty() || magic_pending(g).iter().any(|(_, l)| !l.is_empty()),
         ShopKind::Plaza => false,
     }
+}
+
+// ---------------- 武具屋のお姉さん: 武器合成 ----------------
+
+/// お姉さんが 武器合成の 話を 切り出すか(11Fに 降りたあと、一度だけ)
+pub fn forge_pending(g: &Game) -> bool {
+    g.reached >= FUSE_FLOOR && !g.forge_told() && !g.forge_open()
+}
+
+pub fn forge_lines() -> Vec<String> {
+    let names: Vec<&str> = (1..=ELEMENTS.len()).map(|f| mon(boss_id(f)).name).collect();
+    vec![
+        "あ、アレン! ちょうどよかった。ねえ、武器の 合成って 知ってる?".to_string(),
+        "武器に ほかの武器の 特殊な能力を ひとつ 移したり、おなじ武器を 2本 合わせて +を 強くしたりできるの。".to_string(),
+        "アレン「そんなことが できるの? すごいね!」".to_string(),
+        "でも やるには 「エレメント」が 要るの。1階から 9階までの ボスの 力が 宿った 石よ。".to_string(),
+        format!("ボスは {} の 9体。", names.join("・")),
+        "ふつうに 倒しても 落とさないわ。瘴気発生装置を 5個 置いた階の ボスだけが 持ってるの。".to_string(),
+        "アレン「5個…! 魔物が ものすごく 強くなるよね。」".to_string(),
+        "そこで 11階から 家具屋に 並ぶ 「けっかいじん(簡易)」よ。5個 置いた階で 夜に ボスを 呼びなおしてくれるの。".to_string(),
+        "※メイミ「ボスを 何度も 呼ぶなんて 物騒な 装置ね…。」".to_string(),
+        "9つ ぜんぶ 集めたら 私の ところへ 持ってきて。合成を 引き受けるわ!".to_string(),
+        "＊エレメントを 9つ 集めて 武具屋の「ごうせい」へ!".to_string(),
+    ]
+}
+
+pub fn forge_open_lines() -> Vec<String> {
+    vec![
+        "わあ、本当に 9つ そろえたの!? ありがとう、アレン!".to_string(),
+        "これで 合成が できるわ。能力の合成は 1枠目が 30000G、2枠目が 50000G。".to_string(),
+        "強化合成は +5と+5を 合わせて +6、+6と+6で +7…と、最大 +9まで。お金は だんだん 高くなるわよ。".to_string(),
+        "アレン「ありがとう、お姉さん! 大事に 使うよ。」".to_string(),
+        "＊武具屋で 武器合成が できるように なった!".to_string(),
+    ]
 }
 
 // ---------------- あいさつまわり(はじめから 1日目) ----------------

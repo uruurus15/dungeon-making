@@ -425,17 +425,96 @@ pub static ITEMS: &[ItemDef] = &[
     it("れいぞうこ", Kind::Room, 6000, 4800, 0, 0, "食べ物系の魔物が集まる。"),
     it("まほうじん", Kind::Room, 8000, 6400, 0, 0, "魔法の装備の魔物が集まる。魔物が最高に強くなる。"),
     it("瘴気発生装置", Kind::Room, 12000, 9600, 0, 0, "魔物は出ない。置いた階の魔物が1.2倍に強くなる(最大5個まで重ねがけ)。落とす装備に +1〜+5(置いた数まで)がつく。"),
+    it("けっかいじん(簡易)", Kind::Room, 20000, 16000, 0, 0, "瘴気発生装置を5個置いた階でだけ動く。その階のボスをよびだす。"),
+    it("ヘビリンゴのエレメント", Kind::Quest, 0, 0, 0, 0, "ヘビリンゴの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("リオンのエレメント", Kind::Quest, 0, 0, 0, 0, "リオンの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("ホノオザウルスのエレメント", Kind::Quest, 0, 0, 0, 0, "ホノオザウルスの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("カワウソーサラーのエレメント", Kind::Quest, 0, 0, 0, 0, "カワウソーサラーの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("テツジンのエレメント", Kind::Quest, 0, 0, 0, 0, "テツジンの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("デブリンのエレメント", Kind::Quest, 0, 0, 0, 0, "デブリンの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("アクトパスのエレメント", Kind::Quest, 0, 0, 0, 0, "アクトパスの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("キングリオンのエレメント", Kind::Quest, 0, 0, 0, 0, "キングリオンの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
+    it("アンクルドラゴンのエレメント", Kind::Quest, 0, 0, 0, 0, "アンクルドラゴンの力が宿ったエレメント。武具屋のお姉さんに見せよう。"),
 ];
+
+/// 武器合成を 開く ために あつめる エレメント(1F〜9F のボスが、瘴気発生装置を 5個 置いた 階で だけ 落とす)
+pub const ELEMENTS: [&str; 9] = [
+    "ヘビリンゴのエレメント",
+    "リオンのエレメント",
+    "ホノオザウルスのエレメント",
+    "カワウソーサラーのエレメント",
+    "テツジンのエレメント",
+    "デブリンのエレメント",
+    "アクトパスのエレメント",
+    "キングリオンのエレメント",
+    "アンクルドラゴンのエレメント",
+];
+
+/// そのボスが 落とす エレメント(1F〜9F のボスだけ)
+pub fn element_of(boss: &str) -> Option<&'static str> {
+    (1..=ELEMENTS.len()).find(|&f| boss_id(f) == boss).map(|f| ELEMENTS[f - 1])
+}
+
+/// 武器合成が 解放される 階(武具屋のお姉さんが 声を かけてくる)
+pub const FUSE_FLOOR: usize = 11;
+/// 能力の 合成の 費用(1枠目 / 2枠目。設計値は 指定どおり)
+pub const FUSE_COST: [i32; FUSE_SLOTS] = [30000, 50000];
+pub const KEKKAI_ROOM: &str = "けっかいじん(簡易)";
+
+/// 武器強化合成で +n に する 費用(n = 6〜9。だんだん 高くなる。設計値)
+pub fn plus_fuse_cost(n: i32) -> i32 {
+    match n {
+        6 => 20000,
+        7 => 40000,
+        8 => 80000,
+        _ => 150000,
+    }
+}
 
 /// 瘴気発生装置を 置ける 数(1つの階に)と、ふやせる 強さ
 pub const MAX_MIASMA: usize = 5;
 pub const MIASMA_ROOM: &str = "瘴気発生装置";
 
-/// 「ナイフ+3」を ("ナイフ", 3) に わける。+が なければ (name, 0)
+/// 武器強化合成で 作れる +の 上限(瘴気発生装置の ドロップは MAX_MIASMA まで)
+pub const MAX_PLUS: i32 = 9;
+/// 武器の 合成枠の 数
+pub const FUSE_SLOTS: usize = 2;
+
+/// 合成した 武器の 名前「ナイフ+6《ハンドアクス|ヌンチャク》」を (「ナイフ+6」, [枠1, 枠2]) に わける。合成していなければ (name, [None, None])
+pub fn fuse_split(name: &str) -> (&str, [Option<&str>; FUSE_SLOTS]) {
+    if let (Some(i), true) = (name.find('《'), name.ends_with('》')) {
+        let inner = &name[i + '《'.len_utf8()..name.len() - '》'.len_utf8()];
+        let mut it = inner.split('|');
+        let mut slots = [None; FUSE_SLOTS];
+        for s in slots.iter_mut() {
+            *s = it.next().filter(|x| !x.is_empty());
+        }
+        return (&name[..i], slots);
+    }
+    (name, [None; FUSE_SLOTS])
+}
+
+/// fuse_split の 逆。枠が 1つも 埋まっていなければ 本体の 名前だけ
+pub fn fuse_join(main: &str, slots: [Option<&str>; FUSE_SLOTS]) -> String {
+    if slots.iter().all(|s| s.is_none()) {
+        return main.to_string();
+    }
+    let v: Vec<&str> = slots.iter().map(|s| s.unwrap_or("")).collect();
+    format!("{}《{}》", main, v.join("|"))
+}
+
+/// 画面に 出す 名前: 合成ずみの 武器は 能力の 数だけ ◆ を つける(「ナイフ+6◆◆」)。長い 名前の 一覧が はみ出さないように
+pub fn disp_name(name: &str) -> String {
+    let (m, slots) = fuse_split(name);
+    format!("{}{}", m, "◆".repeat(slots.iter().flatten().count()))
+}
+
+/// 「ナイフ+3」を ("ナイフ", 3) に わける。+が なければ (name, 0)。合成の 枠は 見ない
 pub fn plus_split(name: &str) -> (&str, i32) {
+    let name = fuse_split(name).0;
     if let Some(i) = name.rfind('+') {
         if let Ok(k) = name[i + 1..].parse::<i32>() {
-            if (1..=MAX_MIASMA as i32).contains(&k) {
+            if (1..=MAX_PLUS).contains(&k) {
                 return (&name[..i], k);
             }
         }
@@ -468,7 +547,8 @@ pub fn item(name: &str) -> Option<&'static ItemDef> {
         return Some(d);
     }
     let (base, k) = plus_split(name);
-    if k == 0 {
+    let slots = fuse_split(name).1;
+    if k == 0 && slots.iter().all(|s| s.is_none()) {
         return None;
     }
     use std::collections::HashMap;
@@ -483,10 +563,45 @@ pub fn item(name: &str) -> Option<&'static ItemDef> {
     if !b.kind.is_equip() {
         return None;
     }
+    // 合成の 枠に 入れられるのは 武器だけ。入っている 武器の 名前は 実在の 武器
+    let mut desc: String = b.desc.to_string();
+    if slots.iter().any(|s| s.is_some()) {
+        if b.kind != Kind::Weapon {
+            return None;
+        }
+        let mut parts: Vec<String> = vec![];
+        for s in slots.iter().flatten() {
+            let donor = ITEMS.iter().find(|i| i.name == *s && i.kind == Kind::Weapon)?;
+            parts.push(format!("{}:{}", donor.name, donor.desc));
+        }
+        desc = format!("{}\n合成: {}", b.desc, parts.join(" / "));
+    }
     let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());
-    let d: &'static ItemDef = Box::leak(Box::new(ItemDef { name: leaked, kind: b.kind, buy: plus_value(b.buy, k), sell: plus_value(b.sell, k), power: plus_power(b.power, k, b.ring), ring: b.ring, desc: b.desc }));
+    let desc: &'static str = if desc == b.desc { b.desc } else { Box::leak(desc.into_boxed_str()) };
+    let d: &'static ItemDef = Box::leak(Box::new(ItemDef { name: leaked, kind: b.kind, buy: plus_value(b.buy, k), sell: plus_value(b.sell, k), power: plus_power(b.power, k, b.ring), ring: b.ring, desc }));
     c.insert(name.to_string(), d);
     Some(d)
+}
+
+/// 効果を 読む もとの 武器たち(本体と、合成した 能力の 武器)。+の 数や 合成枠は 能力に 関係しない
+fn fx_sources(name: &str) -> Vec<&'static ItemDef> {
+    let (main, slots) = fuse_split(name);
+    let mut v: Vec<&'static ItemDef> = vec![];
+    if let Some(d) = item(base_name(main)) {
+        v.push(d);
+    }
+    for s in slots.iter().flatten() {
+        if let Some(d) = item(s) {
+            v.push(d);
+        }
+    }
+    v
+}
+
+/// 合成の 素材に できる 武器(特殊な 能力を もつ 武器)か。+も 合成も していない もとの 名前で 調べる
+pub fn fuse_donor_ok(name: &str) -> bool {
+    let Some(d) = ITEMS.iter().find(|i| i.name == name && i.kind == Kind::Weapon) else { return false };
+    fx_of(d) != WFx::default() || crit_one(d) > 0 || slay_one(d) > 1
 }
 
 /// 初期の武具屋の品揃え(売却すると増える)
@@ -514,6 +629,7 @@ pub const FURNITURE_UNLOCK: &[(usize, &str)] = &[
     (16, "れいぞうこ"),
     (20, "まほうじん"),
     (6, "瘴気発生装置"),
+    (11, "けっかいじん(簡易)"),
 ];
 pub const MAGIC_SHOP_ITEMS: &[&str] = &["かいふくやく", "まほうのくすり", "光バクダン", "炎バクダン"];
 /// 魔法屋に並ぶ品物と、その階に降りたことがあれば並ぶ(階, 品物)
@@ -842,8 +958,8 @@ pub fn mon(id: &str) -> &'static MonDef {
 /// 部屋ごとに湧くモンスター(wiki 各階のページ)
 /// その階に表が無い部屋は、表のある いちばん近い階の魔物で うめる(同じ近さなら 浅い階)
 pub fn room_spawns(floor: usize, room: &str) -> &'static [&'static str] {
-    if room == MIASMA_ROOM {
-        return &[]; // 瘴気発生装置からは 魔物が 出ない
+    if room == MIASMA_ROOM || room == KEKKAI_ROOM {
+        return &[]; // 瘴気発生装置からは 魔物が 出ない。けっかいじんは 夜に ボスを よびだす(night_here)
     }
     let own = room_spawns_exact(floor, room);
     if !own.is_empty() {
@@ -1532,6 +1648,7 @@ pub static ROOM_DEFS: &[RoomDef] = &[
     RoomDef { name: "れいぞうこ", w: 1, h: 1, open4: false, cost: ROOM_COST },
     RoomDef { name: "まほうじん", w: 1, h: 1, open4: false, cost: ROOM_COST },
     RoomDef { name: "瘴気発生装置", w: 1, h: 1, open4: false, cost: ROOM_COST },
+    RoomDef { name: "けっかいじん(簡易)", w: 1, h: 1, open4: false, cost: ROOM_COST },
 ];
 
 pub fn room_def(name: &str) -> &'static RoomDef {
@@ -1650,7 +1767,10 @@ pub const CRIT_MULT: i32 = 2;
 
 /// 装備1つが 足す ひっさつ率(%)。説明文の 言い方に あわせる:「〜ことがある」「UP中」=10、「出やすい」「UP大」=20、書いてなければ 0
 pub fn crit_bonus(name: &str) -> u32 {
-    let Some(d) = item(name) else { return 0 };
+    fx_sources(name).into_iter().map(crit_one).sum()
+}
+
+fn crit_one(d: &ItemDef) -> u32 {
     if !d.desc.contains("必殺") {
         return 0;
     }
@@ -1710,7 +1830,7 @@ pub fn stun_guard(name: &str) -> i32 {
 
 /// 「ATK+N」(ゆびわ以外。ゆびわは つよさ+N として すでに 数えている)
 pub fn atk_bonus(name: &str) -> i32 {
-    let Some(d) = item(name) else { return 0 };
+    let Some(d) = item(fuse_split(name).0) else { return 0 };
     if d.ring != 0 {
         return 0;
     }
@@ -1754,9 +1874,14 @@ pub fn ring_element(name: &str) -> u8 {
 
 /// 「幽霊や骨の魔物に大ダメージ」: アンデッドへの ダメージ倍率(なければ 1)
 pub fn slay_mult(name: &str) -> i32 {
-    match item(name) {
-        Some(d) if d.desc.contains("骨の魔物に大ダメージ") || d.desc.contains("不死族の魔物にダメージ大") => 3,
-        _ => 1,
+    fx_sources(name).into_iter().map(slay_one).max().unwrap_or(1)
+}
+
+fn slay_one(d: &ItemDef) -> i32 {
+    if d.desc.contains("骨の魔物に大ダメージ") || d.desc.contains("不死族の魔物にダメージ大") {
+        3
+    } else {
+        1
     }
 }
 
@@ -1804,9 +1929,43 @@ fn elem_in(s: &str) -> u8 {
     }
 }
 
+/// 本体の 武器と 合成した 能力を あわせた 効果(確率は 大きいほう、あるなしは どちらか あれば あり)
 pub fn weapon_fx(name: &str) -> WFx {
     let mut f = WFx::default();
-    let Some(d) = item(name).filter(|d| d.kind == Kind::Weapon) else { return f };
+    for d in fx_sources(name).into_iter().filter(|d| d.kind == Kind::Weapon) {
+        let o = fx_of(d);
+        f.multi = f.multi.max(o.multi);
+        f.all = f.all.max(o.all);
+        f.stun = f.stun.max(o.stun);
+        if o.extra > f.extra {
+            f.extra = o.extra;
+            f.extra_elem = o.extra_elem;
+        }
+        if f.element == 0 {
+            f.element = o.element;
+        }
+        if o.breath > f.breath {
+            f.breath = o.breath;
+            f.breath_elem = o.breath_elem;
+        }
+        f.seal = f.seal.max(o.seal);
+        f.sleep = f.sleep.max(o.sleep);
+        f.poison = f.poison.max(o.poison);
+        f.hp1 = f.hp1.max(o.hp1);
+        f.heal |= o.heal;
+        f.mp_heal = f.mp_heal.max(o.mp_heal);
+        f.follow_all |= o.follow_all;
+        f.weak_vs_water |= o.weak_vs_water;
+    }
+    f
+}
+
+/// 武器1本ぶんの 効果(説明文から 読む)
+fn fx_of(d: &ItemDef) -> WFx {
+    let mut f = WFx::default();
+    if d.kind != Kind::Weapon {
+        return f;
+    }
     let s = d.desc;
     let some = s.contains("ことがある");
     if s.contains("連続") {

@@ -245,6 +245,68 @@ impl App {
                 st.cat = n.rsplit('_').next().and_then(|c| c.parse().ok()).unwrap_or(0);
                 self.scr = Scr::Shop(st);
             }
+            n if n.starts_with("forge_") => {
+                // forge_<lock|talk|main|menu|fmain|fslot|fdonor|pmain|pmat|smain|sslot|ok|okp|oks>: 武器合成の 画面(確認用)
+                self.debug = true;
+                self.g.preset(3);
+                self.g.reached = 11;
+                self.g.gold = 123456;
+                self.g.talks_seen.insert("forge:told".to_string());
+                let page = n.trim_start_matches("forge_");
+                if page != "lock" && page != "talk" {
+                    self.g.talks_seen.insert("forge:open".to_string());
+                }
+                if page == "lock" {
+                    for e in data::ELEMENTS.iter().take(5) {
+                        self.g.add_item(e, 1);
+                    }
+                }
+                for w in ["ナイフ", "ハンドアクス", "ヌンチャク", "ハデスソード", "ナイフ+5", "ナイフ+5", "ハンドアクス+6", "メイデンスピア+7", "メイデンスピア+7"] {
+                    self.g.add_item(w, 1);
+                }
+                self.g.add_item("ナイフ《ハンドアクス|ヌンチャク》", 1);
+                self.g.add_item("ハンドアクス+6《|ハデスソード》", 1);
+                self.g.add_item("ハンドアクス+6", 1);
+                let mut st = shop::ShopSt::new(shop::ShopKind::Armor, &self.g);
+                st.talk.clear();
+                st.fmain = "ナイフ".to_string();
+                st.fslot = 0;
+                st.page = match page {
+                    "main" => shop::Page::Main,
+                    "menu" | "lock" => shop::Page::Forge,
+                    "fmain" => shop::Page::FuseMain,
+                    "fslot" => shop::Page::FuseSlot,
+                    "fdonor" => shop::Page::FuseDonor,
+                    "pmain" => shop::Page::PlusMain,
+                    "pmat" => {
+                        st.fmain = "ハンドアクス+6".to_string();
+                        shop::Page::PlusMat
+                    }
+                    "smain" => shop::Page::StripMain,
+                    "sslot" => {
+                        st.fmain = "ナイフ《ハンドアクス|ヌンチャク》".to_string();
+                        shop::Page::StripSlot
+                    }
+                    "ok" => {
+                        st.pend = Some(shop::Pending::Ability("ナイフ".to_string(), 1, "ハデスソード".to_string()));
+                        shop::Page::Confirm
+                    }
+                    "okp" => {
+                        st.pend = Some(shop::Pending::Plus("メイデンスピア+7".to_string(), "メイデンスピア+7".to_string()));
+                        shop::Page::Confirm
+                    }
+                    "oks" => {
+                        st.pend = Some(shop::Pending::Strip("ナイフ《ハンドアクス|ヌンチャク》".to_string(), 0));
+                        shop::Page::Confirm
+                    }
+                    _ => shop::Page::Main,
+                };
+                if page == "talk" {
+                    st.page = shop::Page::Main;
+                    st.talk.extend(script::forge_lines());
+                }
+                self.scr = Scr::Shop(st);
+            }
             "armor" => self.scr = Scr::Shop(shop::ShopSt::new(shop::ShopKind::Armor, &self.g)),
             "home" => self.scr = Scr::Home(home::HomeSt::new(&self.g)),
             "morning" => self.scr = Scr::Morning(vec!["ぐっすり ねむった".into(), "魔物が3びき すみついた".into(), "通路は静かだ".into(), "ひょうか 12".into()]),

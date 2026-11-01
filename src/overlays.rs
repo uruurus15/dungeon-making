@@ -53,7 +53,7 @@ fn card(ui: &Ui, g: &Game, idx: usize, x: f32, y: f32, w: f32, h: f32) {
     for (i, s) in SLOT_NAMES.iter().enumerate() {
         let cx = x + 24.0 + (i % 2) as f32 * 250.0;
         let cy = y + 270.0 + (i / 2) as f32 * 26.0;
-        let name = m.equip[i].as_deref().unwrap_or("―");
+        let name = m.equip[i].as_deref().map(disp_name).unwrap_or_else(|| "―".to_string());
         ui.text(&format!("{} {}", s, name), cx, cy, 17.0, INK);
     }
     // 魔法
@@ -229,7 +229,7 @@ impl App {
                             None => Row::new("はずす"),
                             Some(n) => {
                                 let d = item(n).unwrap();
-                                Row::new(format!("{}  x{}", n, self.g.count(n))).right(if d.kind == Kind::Ring { crate::town::equip_effects(n) } else if d.kind == Kind::Weapon { format!("ATK+{}", d.power) } else { format!("DEF+{}", d.power) })
+                                Row::new(format!("{}  x{}", disp_name(n), self.g.count(n))).right(if d.kind == Kind::Ring { crate::town::equip_effects(n) } else if d.kind == Kind::Weapon { format!("ATK+{}", d.power) } else { format!("DEF+{}", d.power) })
                             }
                         })
                         .collect();
@@ -239,7 +239,7 @@ impl App {
                     if let Some(Some(n)) = cands.get(cur) {
                         draw_rectangle(10.0, SH + 322.0, LW - 20.0, 92.0, rgba(24, 18, 10, 235));
                         draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 92.0, 2.0, rgb(232, 192, 64));
-                        self.ui.text_wrap(&format!("{}\n{}", n, item_help(n)), 20.0, SH + 328.0, LW - 40.0, 17.0, CREAM, 21.0);
+                        self.ui.text_wrap(&format!("{}\n{}", disp_name(n), item_help(n)), 20.0, SH + 328.0, LW - 40.0, 17.0, CREAM, 21.0);
                     }
                     match m2.run(&self.ui, &self.inp, &rows, Rect::new(10.0, SH + 68.0, LW - 20.0, 250.0), 46.0, 22.0, Style::Wood, true) {
                         MenuEv::Confirm(i) => {
@@ -257,7 +257,7 @@ impl App {
                     }
                 } else {
                     let m = &self.g.party[*who];
-                    let mut rows: Vec<Row> = SLOT_NAMES.iter().enumerate().map(|(i, s)| Row::new(*s).right(m.equip[i].clone().unwrap_or_else(|| "―".to_string())).enabled(m.can_wear(i))).collect();
+                    let mut rows: Vec<Row> = SLOT_NAMES.iter().enumerate().map(|(i, s)| Row::new(*s).right(m.equip[i].as_deref().map(disp_name).unwrap_or_else(|| "―".to_string())).enabled(m.can_wear(i))).collect();
                     rows.push(Row::new("さいきょう そうび(おまかせ)").enabled((0..6).any(|i| m.can_wear(i))));
                     menu.no_page = true;
                     match menu.run(&self.ui, &self.inp, &rows, Rect::new(10.0, SH + 40.0, LW - 20.0, 340.0), 46.0, 22.0, Style::Wood, true) {
@@ -280,7 +280,7 @@ impl App {
                     if let Some(n) = self.g.party[*who].equip[slot_cur].clone() {
                         draw_rectangle(10.0, SH + 322.0, LW - 20.0, 52.0, rgba(24, 18, 10, 235));
                         draw_rectangle_lines(10.0, SH + 322.0, LW - 20.0, 52.0, 2.0, rgb(232, 192, 64));
-                        self.ui.text_wrap(&format!("{}: {}", n, item_help(&n)), 20.0, SH + 326.0, LW - 40.0, 16.0, CREAM, 20.0);
+                        self.ui.text_wrap(&format!("{}: {}", disp_name(&n), item_help(&n)), 20.0, SH + 326.0, LW - 40.0, 16.0, CREAM, 20.0);
                     }
                     if self.g.party[*who].is_slime {
                         self.ui.text("ジェリーは ものまねした部分にだけ そうびできる(メニューの「ものまね」)", 18.0, SH + 380.0, 16.0, rgb(255, 200, 160));
@@ -391,7 +391,7 @@ impl App {
                     }
                 } else {
                     panel_wood(0.0, SH, LW, SH);
-                    let rows: Vec<Row> = names.iter().map(|n| Row::new(format!("{}  x{}", n, self.g.count(n)))).collect();
+                    let rows: Vec<Row> = names.iter().map(|n| Row::new(format!("{}  x{}", disp_name(n), self.g.count(n)))).collect();
                     let cur = menu.cursor.min(names.len().saturating_sub(1));
                     if let Some(n) = names.get(cur) {
                         self.ui.text_wrap(&item_help(n), 28.0, 70.0, LW - 60.0, 22.0, INK, 30.0);

@@ -2,7 +2,7 @@
 
 use crate::data::*;
 use crate::sim::Game;
-use crate::town::{comma, item_help, TownSt};
+use crate::town::{comma, equip_effects, item_help, TownSt};
 use crate::ui::*;
 use crate::{App, Scr};
 use macroquad::prelude::*;
@@ -24,6 +24,27 @@ pub enum Page {
     Spell,
     Show,
     Peddler,
+    /// 武具屋のお姉さんの 武器合成(エレメントで 開く)
+    Forge,
+    FuseMain,
+    FuseSlot,
+    FuseDonor,
+    PlusMain,
+    PlusMat,
+    StripMain,
+    StripSlot,
+    Confirm,
+}
+
+/// 武器合成の 確認待ち
+#[derive(Clone)]
+pub enum Pending {
+    /// (本体, 枠, 素材)
+    Ability(String, usize, String),
+    /// (本体, 素材)
+    Plus(String, String),
+    /// (本体, 枠)
+    Strip(String, usize),
 }
 
 pub struct ShopSt {
@@ -40,6 +61,62 @@ pub struct ShopSt {
     goto_buy: bool,
     /// 武具屋の タブ(0=ぶき 1=たて 2=あたま 3=からだ 4=あし 5=ゆびわ)。店を出るまで おぼえておく
     pub cat: usize,
+    /// 武器合成: 選んだ 本体・枠・素材
+    pub fmain: String,
+    pub fslot: usize,
+    pub fmat: String,
+    pub pend: Option<Pending>,
+}
+
+/// 武器合成の 画面を もどる 先
+fn parent(p: Page) -> Page {
+    match p {
+        Page::FuseSlot => Page::FuseMain,
+        Page::FuseDonor => Page::FuseSlot,
+        Page::PlusMat => Page::PlusMain,
+        Page::StripSlot => Page::StripMain,
+        Page::FuseMain | Page::PlusMain | Page::StripMain | Page::Confirm => Page::Forge,
+        _ => Page::Main,
+    }
+}
+
+/// 合成で 本体に できる 武器(持っている 武器すべて)
+fn forge_weapons(g: &Game) -> Vec<String> {
+    g.owned_defs().into_iter().filter(|d| d.kind == Kind::Weapon).map(|d| d.name.to_string()).collect()
+}
+
+/// 能力の 素材に できる 武器(合成ずみでなく、特殊な 能力が あり、本体と ちがう 武器)
+fn donor_weapons(g: &Game, main: &str) -> Vec<String> {
+    forge_weapons(g).into_iter().filter(|n| fuse_split(n).1.iter().all(|s| s.is_none()) && fuse_donor_ok(base_name(n)) && base_name(n) != base_name(main)).collect()
+}
+
+/// 強化合成の 相手に なれる 武器(おなじ武器で おなじ +。本体と おなじ名前なら 2本 ひつよう)
+fn plus_mats(g: &Game, main: &str) -> Vec<String> {
+    forge_weapons(g).into_iter().filter(|n| g.plus_fuse_plan(main, n).is_ok()).collect()
+}
+
+/// 確認画面の 説明(できあがる 武器と 費用)
+fn pend_text(g: &Game, p: &Pending) -> (String, i32) {
+    match p {
+        Pending::Ability(m, s, d) => {
+            let (mm, mut slots) = fuse_split(m);
+            let db = base_name(d);
+            slots[*s] = Some(db);
+            let new = fuse_join(mm, slots);
+            let _ = g;
+            (format!("{} の {}枠目に {} の能力を つける。{} は なくなる。\nできあがり: {}\n効果: {}", disp_name(m), s + 1, db, d, disp_name(&new), equip_effects(&new)), FUSE_COST[*s])
+        }
+        Pending::Plus(m, mat) => match g.plus_fuse_plan(m, mat) {
+            Ok((new, cost)) => (format!("{} と {} を あわせて {} に する。\n本体の 合成枠は のこり、素材の 枠は きえる。", disp_name(m), disp_name(mat), disp_name(&new)), cost),
+            Err(e) => (e, 0),
+        },
+        Pending::Strip(m, s) => {
+            let (mm, mut slots) = fuse_split(m);
+            let was = slots[*s].unwrap_or("");
+            slots[*s] = None;
+            (format!("{} の {}枠目({} の能力)を はずす。ただで できるが、素材は もどらない。\nできあがり: {}", disp_name(m), s + 1, was, disp_name(&fuse_join(mm, slots))), 0)
+        }
+    }
 }
 
 /// 武具屋の 種類わけ(Kind::slot の 番号と おなじ)
@@ -74,6 +151,15 @@ enum Act {
     Hint,
     Leave,
     None,
+    ForgeUnlock,
+    FMain(String),
+    FSlot(usize),
+    FDonor(String),
+    PMain(String),
+    PMat(String),
+    SMain(String),
+    SSlot(usize),
+    Do,
 }
 
 impl ShopSt {
@@ -86,7 +172,7 @@ impl ShopSt {
             ShopKind::Mayor => "おお、アレン。ダンジョンの調子はどうじゃ?",
         };
         let _ = g;
-        ShopSt { kind, page: Page::Main, menu: ListMenu::new(), msg: msg.to_string(), qi: 0, talk: Default::default(), talk_init: false, goto_buy: false, cat: 0 }
+        ShopSt { kind, page: Page::Main, menu: ListMenu::new(), msg: msg.to_string(), qi: 0, talk: Default::default(), talk_init: false, goto_buy: false, cat: 0, fmain: String::new(), fslot: 0, fmat: String::new(), pend: None }
     }
 }
 
@@ -117,6 +203,15 @@ fn title(kind: ShopKind, page: Page) -> &'static str {
         (_, Page::Spell) => "まほう",
         (_, Page::Show) => "しょくざいを みせる",
         (_, Page::Peddler) => "行商人",
+        (_, Page::Forge) => "ごうせい",
+        (_, Page::FuseMain) => "ごうせい: どの武器に?",
+        (_, Page::FuseSlot) => "ごうせい: どの枠に?",
+        (_, Page::FuseDonor) => "ごうせい: どの能力を?",
+        (_, Page::PlusMain) => "強化合成: どの武器を?",
+        (_, Page::PlusMat) => "強化合成: あわせる 武器は?",
+        (_, Page::StripMain) => "能力を はずす: どの武器?",
+        (_, Page::StripSlot) => "能力を はずす: どの枠?",
+        (_, Page::Confirm) => "この内容で いい?",
         (ShopKind::Armor, _) => "武具屋",
         (ShopKind::Magic, _) => "魔法屋",
         (ShopKind::Furniture, _) => "家具屋",
@@ -212,6 +307,10 @@ impl App {
                             rows.push((Row::new("行商人").right("きょうは 来ているよ!").badge(!g.peddler_wares().is_empty()), Act::Go(Page::Peddler)));
                         }
                         rows.push((Row::new("うる"), Act::Go(Page::Sell)));
+                        if kind == ShopKind::Armor && g.reached >= FUSE_FLOOR && (g.forge_told() || g.forge_open()) {
+                            let r = Row::new("ごうせい");
+                            rows.push((if g.forge_open() { r.right("武器の能力・+を つよくする") } else { r.right(format!("エレメント {}/{}", g.elements_have(), ELEMENTS.len())).badge(g.elements_have() == ELEMENTS.len()) }, Act::Go(Page::Forge)));
+                        }
                         if kind == ShopKind::Magic {
                             rows.push((Row::new("しょくざいを みせる").badge(!g.teachable().is_empty()), Act::Go(Page::Show)));
                         }
@@ -234,7 +333,7 @@ impl App {
             Page::Sell => {
                 for n in sell_list(kind, g).into_iter().filter(|n| kind != ShopKind::Armor || cat_of(n) == Some(st.cat)) {
                     let d = item(&n).unwrap();
-                    rows.push((Row::new(format!("{}  x{}", n, g.count(&n))).right(format!("{}G", d.sell)), Act::Sell(n)));
+                    rows.push((Row::new(format!("{}  x{}", disp_name(&n), g.count(&n))).right(format!("{}G", d.sell)), Act::Sell(n)));
                 }
             }
             Page::Spell => {
@@ -249,6 +348,67 @@ impl App {
                 for (n, p) in g.peddler_wares() {
                     let boss = food_origin(&n).map(|x| x.1).unwrap_or(false);
                     rows.push((Row::new(format!("{}{}", if boss { "★ " } else { "" }, n)).right(format!("{}G", p)).enabled(g.gold >= p), Act::Peddler(n)));
+                }
+            }
+            Page::Forge if !g.forge_open() => {
+                let all = g.elements_have() == ELEMENTS.len();
+                rows.push((Row::new("エレメントを わたして ごうせいを ひらく").enabled(all), Act::ForgeUnlock));
+                for e in ELEMENTS {
+                    let have = g.count(e) > 0;
+                    rows.push((Row::new(e.to_string()).right(if have { "もっている" } else { "まだ" }).enabled(false), Act::None));
+                }
+            }
+            Page::Forge => {
+                rows.push((Row::new("のうりょくを あわせる").right("30000G / 50000G"), Act::Go(Page::FuseMain)));
+                rows.push((Row::new("+を つよくする(強化合成)").right("+5から +9まで"), Act::Go(Page::PlusMain)));
+                rows.push((Row::new("のうりょくを はずす").right("ただ"), Act::Go(Page::StripMain)));
+            }
+            Page::FuseMain => {
+                for n in forge_weapons(g) {
+                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::FMain(n)));
+                }
+            }
+            Page::FuseSlot => {
+                let slots = fuse_split(&st.fmain).1;
+                for i in 0..FUSE_SLOTS {
+                    let cur = slots[i].map(|s| format!("{}の能力", s)).unwrap_or_else(|| "あき".to_string());
+                    rows.push((Row::new(format!("{}枠目  ({})", i + 1, cur)).right(format!("{}G", FUSE_COST[i])).enabled(g.gold >= FUSE_COST[i]), Act::FSlot(i)));
+                }
+            }
+            Page::FuseDonor => {
+                for n in donor_weapons(g, &st.fmain) {
+                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::FDonor(n)));
+                }
+            }
+            Page::PlusMain => {
+                for n in forge_weapons(g).into_iter().filter(|n| !plus_mats(g, n).is_empty()) {
+                    let cost = g.plus_fuse_plan(&n, &plus_mats(g, &n)[0]).map(|x| x.1).unwrap_or(0);
+                    rows.push((Row::new(disp_name(&n)).right(format!("{}G", cost)).enabled(g.gold >= cost), Act::PMain(n)));
+                }
+            }
+            Page::PlusMat => {
+                for n in plus_mats(g, &st.fmain) {
+                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::PMat(n)));
+                }
+            }
+            Page::StripMain => {
+                for n in forge_weapons(g).into_iter().filter(|n| fuse_split(n).1.iter().any(|s| s.is_some())) {
+                    rows.push((Row::new(disp_name(&n)).right(format!("x{}", g.count(&n))), Act::SMain(n)));
+                }
+            }
+            Page::StripSlot => {
+                let slots = fuse_split(&st.fmain).1;
+                for i in 0..FUSE_SLOTS {
+                    if let Some(s) = slots[i] {
+                        rows.push((Row::new(format!("{}枠目  ({}の能力)", i + 1, s)), Act::SSlot(i)));
+                    }
+                }
+            }
+            Page::Confirm => {
+                if let Some(p) = &st.pend {
+                    let (_, cost) = pend_text(g, p);
+                    rows.push((Row::new("あわせる").right(if cost > 0 { format!("{}G", cost) } else { String::new() }).enabled(g.gold >= cost), Act::Do));
+                    rows.push((Row::new("やめる"), Act::Go(Page::Forge)));
                 }
             }
             Page::Show => {
@@ -272,6 +432,16 @@ impl App {
                     h
                 }
                 Act::Spell(id) => spell(id).desc.to_string(),
+                Act::FMain(n) | Act::PMain(n) | Act::SMain(n) | Act::FDonor(n) | Act::PMat(n) => item_help(n),
+                Act::FSlot(i) => format!("{}枠目に 能力を つける。{}G。すでに ついている 能力は 上書きされる。素材の武器は なくなる。", i + 1, FUSE_COST[*i]),
+                Act::SSlot(i) => format!("{}枠目の 能力を はずす(ただ)。", i + 1),
+                Act::ForgeUnlock => "1F〜9F の ボスの エレメントを 9つ そろえて わたすと、武器合成が 開く。".to_string(),
+                Act::Go(Page::Forge) if kind == ShopKind::Armor => "エレメントを あつめて 武器合成を ひらこう。瘴気発生装置を5個置いた階のボスだけが 落とす。11Fから 家具屋に ならぶ「けっかいじん(簡易)」で ボスを 呼びなおせる。".to_string(),
+                Act::Go(Page::FuseMain) => "武器に ほかの武器の 特殊な能力を つける(2枠まで)。1枠目 30000G、2枠目 50000G。素材の武器は なくなる。".to_string(),
+                Act::Go(Page::PlusMain) => "おなじ武器の +N と +N を あわせて +(N+1) に。+5〜+8の 武器が 2本 そろうと できる。最大 +9。".to_string(),
+                Act::Go(Page::StripMain) => "つけた 能力を 枠ごとに はずす(ただ)。素材は もどらない。".to_string(),
+                Act::Do => st.pend.as_ref().map(|p| pend_text(g, p).0).unwrap_or_default(),
+                Act::None if st.page == Page::Forge => "どんな 武器にも 合う ように、エレメントが 力を かしてくれる。".to_string(),
                 _ => String::new(),
             };
         }
@@ -375,7 +545,7 @@ impl App {
                 if st.page == Page::Main {
                     return Some(Scr::Town(TownSt::new(None)));
                 }
-                st.page = Page::Main;
+                st.page = parent(st.page);
                 st.menu = ListMenu::new();
             }
             MenuEv::Confirm(i) => {
@@ -472,6 +642,78 @@ impl App {
                     }
                     Act::Hint => {
                         st.talk.extend(crate::script::mayor_goal(&self.g));
+                    }
+                    Act::ForgeUnlock => match self.g.forge_unlock() {
+                        Ok(()) => {
+                            self.ui.audio.sfx("buy");
+                            st.talk.extend(crate::script::clean(crate::script::forge_open_lines(), self.g.party[2].joined));
+                            st.menu = ListMenu::new();
+                        }
+                        Err(e) => {
+                            self.ui.audio.sfx("blocked");
+                            st.msg = e;
+                        }
+                    },
+                    Act::FMain(n) => {
+                        st.fmain = n;
+                        st.page = Page::FuseSlot;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::FSlot(i) => {
+                        st.fslot = i;
+                        if donor_weapons(&self.g, &st.fmain).is_empty() {
+                            self.ui.audio.sfx("blocked");
+                            st.msg = "素材に できる 武器が ないわ(特殊な能力の ある 別の武器が 要るの)".to_string();
+                        } else {
+                            st.page = Page::FuseDonor;
+                            st.menu = ListMenu::new();
+                        }
+                    }
+                    Act::FDonor(d) => {
+                        st.pend = Some(Pending::Ability(st.fmain.clone(), st.fslot, d));
+                        st.page = Page::Confirm;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::PMain(n) => {
+                        st.fmain = n;
+                        st.page = Page::PlusMat;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::PMat(m) => {
+                        st.pend = Some(Pending::Plus(st.fmain.clone(), m));
+                        st.page = Page::Confirm;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::SMain(n) => {
+                        st.fmain = n;
+                        st.page = Page::StripSlot;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::SSlot(i) => {
+                        st.pend = Some(Pending::Strip(st.fmain.clone(), i));
+                        st.page = Page::Confirm;
+                        st.menu = ListMenu::new();
+                    }
+                    Act::Do => {
+                        if let Some(p) = st.pend.take() {
+                            let r = match &p {
+                                Pending::Ability(m, s, d) => self.g.fuse_ability(m, *s, d),
+                                Pending::Plus(m, mat) => self.g.fuse_plus(m, mat),
+                                Pending::Strip(m, s) => self.g.fuse_remove(m, *s),
+                            };
+                            match r {
+                                Ok(new) => {
+                                    self.ui.audio.sfx("buy");
+                                    st.msg = format!("できたわ! 「{}」の 完成よ!", disp_name(&new));
+                                }
+                                Err(e) => {
+                                    self.ui.audio.sfx("blocked");
+                                    st.msg = e;
+                                }
+                            }
+                            st.page = Page::Forge;
+                            st.menu = ListMenu::new();
+                        }
                     }
                     Act::None => {}
                 }

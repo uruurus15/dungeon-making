@@ -1098,7 +1098,7 @@ fn data_tables_are_consistent() {
         let mut g = Game::new(1);
         g.reached = f;
         for kind in g.furniture_stock() {
-            if chest_tier(kind).is_some() || kind == MIASMA_ROOM {
+            if chest_tier(kind).is_some() || kind == MIASMA_ROOM || kind == KEKKAI_ROOM {
                 continue;
             }
             assert!(!room_spawns(f, kind).is_empty(), "{}F の {} に出現表が無い", f, kind);
@@ -2626,7 +2626,7 @@ fn every_monster_has_a_hand_made_model() {
 fn every_room_spawns_monsters_on_every_floor() {
     for f in 1..=MAX_FLOOR {
         for r in ROOM_DEFS {
-            if chest_tier(r.name).is_some() || r.name == MIASMA_ROOM {
+            if chest_tier(r.name).is_some() || r.name == MIASMA_ROOM || r.name == KEKKAI_ROOM {
                 continue;
             }
             assert!(!room_spawns(f, r.name).is_empty(), "{}F の {} に魔物の表が無い", f, r.name);
@@ -2771,7 +2771,7 @@ fn plus_equipment_is_six_percent_stronger_per_step_rounded_up() {
     // 特殊な効果(耐性・名前での判定)は そのまま
     assert_eq!(resist("炎のたて+5"), resist("炎のたて"));
     assert_eq!(base_name("ワームシールド+2"), "ワームシールド");
-    assert!(item("ナイフ+6").is_none() && item("ホウレンソウ+1").is_none() && item("ナイフ+0").is_none());
+    assert!(item("ナイフ+10").is_none() && item("ホウレンソウ+1").is_none() && item("ナイフ+0").is_none());
 }
 
 #[test]
@@ -3519,4 +3519,299 @@ fn each_plus_level_raises_atk_def_by_at_least_one() {
     }
     assert_eq!(item("かわのブーツ+4").unwrap().power, 7);
     assert_eq!(item("かわのブーツ+5").unwrap().power, 8);
+}
+
+// ---------------- 武器合成(武具屋のお姉さん)・けっかいじん(簡易) ----------------
+
+fn forge_game(seed: u64) -> Game {
+    let mut g = Game::new(seed);
+    g.reached = 11;
+    g.talks_seen.insert("forge:told".to_string());
+    g.talks_seen.insert("forge:open".to_string());
+    g.gold = 1_000_000;
+    g
+}
+
+fn kill_boss_here(g: &mut Game) {
+    for m in g.party.iter_mut() {
+        m.hp_max = 99999;
+        m.hp = 99999;
+    }
+    let mut b = Battle::new(g, &[Source::Boss]);
+    b.enemies[0].hp = 1;
+    for _ in 0..200 {
+        match b.advance(g) {
+            Advance::End(_) => return,
+            Advance::Msgs(_) => {}
+            Advance::NeedCmd(i) => {
+                b.command(g, i, if i == 0 { Cmd::Attack(0) } else { Cmd::Defend });
+            }
+        }
+    }
+    panic!("battle did not end");
+}
+
+#[test]
+fn fused_weapon_names_round_trip_and_all_plus_levels_exist() {
+    assert_eq!(fuse_split("ナイフ+6"), ("ナイフ+6", [None, None]));
+    assert_eq!(fuse_split("ナイフ+6《ハンドアクス|ヌンチャク》"), ("ナイフ+6", [Some("ハンドアクス"), Some("ヌンチャク")]));
+    assert_eq!(fuse_split("ナイフ《|ヌンチャク》").1, [None, Some("ヌンチャク")]);
+    assert_eq!(fuse_split("ナイフ《ハンドアクス|》").1, [Some("ハンドアクス"), None]);
+    for slots in [[None, None], [Some("ハンドアクス"), None], [None, Some("ヌンチャク")], [Some("ハンドアクス"), Some("ヌンチャク")]] {
+        for k in 0..=MAX_PLUS {
+            let main = if k == 0 { "ナイフ".to_string() } else { format!("ナイフ+{}", k) };
+            let name = fuse_join(&main, slots);
+            let d = item(&name).unwrap_or_else(|| panic!("{}", name));
+            assert_eq!(d.kind, Kind::Weapon);
+            assert_eq!(plus_split(&name), ("ナイフ", k), "{}", name);
+            assert_eq!(base_name(&name), "ナイフ");
+            // 強さは 本体の +だけで 決まる(能力を つけても ATKは かわらない)
+            assert_eq!(d.power, item(&main).unwrap().power, "{}", name);
+            assert_eq!(fuse_split(&name), (main.as_str(), slots));
+        }
+    }
+    assert!(item("ナイフ+10").is_none() && item("ナイフ《ホウレンソウ|》").is_none());
+    // 武器以外には 能力を つけられない
+    assert!(item("かわのぼうし《ハンドアクス|》").is_none());
+}
+
+#[test]
+fn fused_weapon_merges_effects_without_changing_the_base_rates() {
+    // ナイフには 特殊効果が ない。ハンドアクスの 全体攻撃(20%)と ヌンチャクの 追撃が そのまま 乗る
+    let n = fuse_join("ナイフ+3", [Some("ハンドアクス"), Some("ヌンチャク")]);
+    let fx = weapon_fx(&n);
+    assert_eq!(fx.all, weapon_fx("ハンドアクス").all);
+    assert!(fx.follow_all);
+    // 本体の 効果は 素材の 言い回しで かわらない(「ことがある」が 混ざらない)
+    let spear = "メイデンスピア";
+    assert_eq!(weapon_fx(spear).all, 100);
+    let m = fuse_join(spear, [Some("ハンドアクス"), None]);
+    assert_eq!(weapon_fx(&m).all, 100);
+    let dagger = fuse_join("ワーネコダッガー", [Some("ハンドアクス"), None]);
+    assert_eq!(weapon_fx(&dagger).multi, weapon_fx("ワーネコダッガー").multi);
+    assert_eq!(weapon_fx(&dagger).all, 20);
+    // 能力の 無い 武器は 素材に できない(ナイフ)
+    assert!(fuse_donor_ok("ハンドアクス"));
+    let plain = ITEMS.iter().filter(|d| d.kind == Kind::Weapon && !fuse_donor_ok(d.name)).count();
+    assert!(plain > 0, "能力の ない 武器は 素材に できない");
+}
+
+#[test]
+fn forge_unlock_needs_all_nine_elements_and_ability_fusion_costs_by_slot() {
+    let mut g = Game::new(301);
+    g.reached = 11;
+    g.gold = 1_000_000;
+    g.add_item("ナイフ", 1);
+    g.add_item("ハンドアクス", 2);
+    assert!(g.fuse_ability("ナイフ", 0, "ハンドアクス").is_err(), "ひらく前は 合成できない");
+    for e in ELEMENTS.iter().take(8) {
+        g.add_item(e, 1);
+    }
+    assert!(g.forge_unlock().is_err());
+    g.add_item(ELEMENTS[8], 1);
+    assert_eq!(g.elements_have(), 9);
+    g.forge_unlock().unwrap();
+    assert!(g.forge_open() && g.elements_have() == 0, "エレメントは わたして なくなる");
+    // 1枠目 30000G
+    let before = g.gold;
+    let n1 = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    assert_eq!(before - g.gold, 30000);
+    assert_eq!(n1, "ナイフ《ハンドアクス|》");
+    assert_eq!((g.count("ナイフ"), g.count("ハンドアクス"), g.count(&n1)), (0, 1, 1));
+    // 2枠目 50000G。おなじ 能力は 重ねられない
+    assert!(g.fuse_ability(&n1, 1, "ハンドアクス").is_err());
+    g.add_item("ヌンチャク", 1);
+    let before = g.gold;
+    let n2 = g.fuse_ability(&n1, 1, "ヌンチャク").unwrap();
+    assert_eq!(before - g.gold, 50000);
+    assert_eq!(n2, "ナイフ《ハンドアクス|ヌンチャク》");
+    // 合成ずみの 武器は 素材に できない。能力の ない 武器も
+    g.add_item("ナイフ", 1);
+    assert!(g.fuse_ability("ナイフ", 0, &n2).is_err() && g.fuse_ability("ナイフ", 0, "ナイフ").is_err());
+    // 上書き(1枠目を ほかの 能力に)
+    g.add_item("ハデスソード", 1);
+    let n3 = g.fuse_ability(&n2, 0, "ハデスソード").unwrap();
+    assert_eq!(n3, "ナイフ《ハデスソード|ヌンチャク》");
+    assert_eq!(g.count("ハンドアクス"), 1, "上書きされた 能力の 武器は もどらない");
+    // はずす(ただ)。枠ごとに
+    let before = g.gold;
+    let n4 = g.fuse_remove(&n3, 0).unwrap();
+    assert_eq!((g.gold, n4.as_str()), (before, "ナイフ《|ヌンチャク》"));
+    let n5 = g.fuse_remove(&n4, 1).unwrap();
+    assert_eq!(n5, "ナイフ");
+    assert!(g.fuse_remove(&n5, 0).is_err());
+    // お金が足りないと できない
+    g.gold = 29999;
+    assert!(g.fuse_ability("ナイフ", 0, "ハンドアクス").is_err());
+}
+
+#[test]
+fn plus_fusion_goes_from_5_to_9_with_rising_cost_and_same_weapon_only() {
+    let mut g = forge_game(302);
+    g.add_item("ナイフ+5", 2);
+    let mut last = 0;
+    for k in 5..MAX_PLUS {
+        let cost = plus_fuse_cost(k + 1);
+        assert!(cost > last, "+{} の 費用は だんだん 高くなる", k + 1);
+        last = cost;
+        let main = format!("ナイフ+{}", k);
+        let before = g.gold;
+        let new = g.fuse_plus(&main, &main).unwrap();
+        assert_eq!(new, format!("ナイフ+{}", k + 1));
+        assert_eq!(before - g.gold, cost);
+        assert_eq!(g.count(&main), 0);
+        g.add_item(&new, 1); // もう1本 作った つもり
+    }
+    assert_eq!(g.count("ナイフ+9"), 2);
+    assert!(g.fuse_plus("ナイフ+9", "ナイフ+9").is_err(), "+9が 最大");
+    // +4 から は できない / ちがう +どうし / ちがう 武器どうし
+    g.add_item("ナイフ+4", 2);
+    g.add_item("ナイフ+6", 1);
+    g.add_item("ハンドアクス+6", 1);
+    assert!(g.fuse_plus("ナイフ+4", "ナイフ+4").is_err());
+    g.add_item("ナイフ+7", 1);
+    assert!(g.fuse_plus("ナイフ+7", "ナイフ+6").is_err());
+    assert!(g.fuse_plus("ナイフ+6", "ハンドアクス+6").is_err());
+    // 本体の 合成枠は のこる(素材の 枠は きえる)
+    let a = fuse_join("ナイフ+6", [Some("ハンドアクス"), None]);
+    let b = fuse_join("ナイフ+6", [None, Some("ヌンチャク")]);
+    g.add_item(&a, 1);
+    g.add_item(&b, 1);
+    let new = g.fuse_plus(&a, &b).unwrap();
+    assert_eq!(new, "ナイフ+7《ハンドアクス|》");
+}
+
+#[test]
+fn equipped_fused_weapon_works_and_save_round_trips() {
+    let mut g = forge_game(303);
+    g.add_item("ナイフ", 1);
+    g.add_item("ハンドアクス", 1);
+    let n = g.fuse_ability("ナイフ", 0, "ハンドアクス").unwrap();
+    g.equip(0, &n).unwrap();
+    assert_eq!(g.party[0].equip[0].as_deref(), Some(n.as_str()));
+    assert_eq!(weapon_fx(&n).all, 20);
+    // 外すと 持ち物に もどる。所持品の 一覧にも 出る
+    g.unequip(0, 0);
+    assert!(g.owned_defs().iter().any(|d| d.name == n));
+    g.equip(0, &n).unwrap();
+    let text = g.save_text();
+    let h = Game::load_text(&text).unwrap();
+    assert_eq!(h.party[0].equip[0].as_deref(), Some(n.as_str()));
+    assert!(h.forge_open());
+}
+
+#[test]
+fn elements_drop_only_from_bosses_with_five_miasma_generators_after_11f() {
+    // 瘴気5個 + 11F到達: 1Fボスが ヘビリンゴのエレメントを 落とす
+    let mut g = Game::new(304);
+    g.reached = 11;
+    put_miasma(&mut g, 5);
+    kill_boss_here(&mut g);
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 1);
+    // もう 持っていれば 重ねて 落とさない
+    g.dungeon.boss_defeated = false;
+    kill_boss_here(&mut g);
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 1);
+    // 瘴気4個では 落とさない
+    let mut g = Game::new(305);
+    g.reached = 11;
+    put_miasma(&mut g, 4);
+    kill_boss_here(&mut g);
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 0);
+    // 11F に 降りる前は 落とさない
+    let mut g = Game::new(306);
+    g.reached = 6;
+    put_miasma(&mut g, 5);
+    kill_boss_here(&mut g);
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 0);
+    // 合成が 開いたあとは もう 落とさない
+    let mut g = forge_game(307);
+    put_miasma(&mut g, 5);
+    kill_boss_here(&mut g);
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 0);
+    // 9体ぶん あり、ボスの 名前と そろっている
+    for f in 1..=9 {
+        assert_eq!(element_of(boss_id(f)), Some(ELEMENTS[f - 1]));
+        assert_eq!(ELEMENTS[f - 1], format!("{}のエレメント", mon(boss_id(f)).name));
+        assert!(item(ELEMENTS[f - 1]).map(|d| d.kind) == Some(Kind::Quest));
+    }
+    assert_eq!(element_of("devilprince"), None);
+}
+
+#[test]
+fn kekkaijin_is_sold_from_11f_and_summons_the_floor_boss_only_with_five_miasma() {
+    assert!(FURNITURE_UNLOCK.contains(&(FUSE_FLOOR, KEKKAI_ROOM)));
+    assert_eq!(item(KEKKAI_ROOM).map(|d| d.kind), Some(Kind::Room));
+    let mut g = Game::new(308);
+    g.reached = 10;
+    assert!(!g.furniture_stock().contains(&KEKKAI_ROOM));
+    g.reached = 11;
+    assert!(g.furniture_stock().contains(&KEKKAI_ROOM));
+    g.dungeon.rooms.push(Room { x: 2, y: 5, w: 1, h: 1, front: (2, 5), kind: KEKKAI_ROOM.into(), door: Dir::Down, open4: false, mons: vec![None], chest_open: false, refill: 0 });
+    let mut rep = NightReport::default();
+    // 瘴気が 足りない: よばない
+    put_miasma(&mut g, 4);
+    g.dungeon.boss_defeated = true;
+    g.night_here(&mut rep);
+    assert!(g.dungeon.rooms[0].mons[0].is_none());
+    // 5個 そろっても、魔穴の ボスを 倒す前は よばない
+    put_miasma(&mut g, 5);
+    g.dungeon.boss_defeated = false;
+    g.night_here(&mut rep);
+    assert!(g.dungeon.rooms[0].mons[0].is_none(), "魔穴の ボスを 倒す前は よばない");
+    // 5個 + ボス撃破ずみ: その階の ボスが 出る
+    g.dungeon.boss_defeated = true;
+    g.night_here(&mut rep);
+    assert_eq!(g.dungeon.rooms[0].mons[0].as_deref(), Some(boss_id(1)));
+    // 瘴気が 外されたら 魔物は 出てこない(けっかいじんは ねむる)
+    let r = g.dungeon.rooms[0].clone();
+    assert!(g.room_awake(&r));
+    g.dungeon.rooms.retain(|r| r.kind != MIASMA_ROOM);
+    let r = g.dungeon.rooms[0].clone();
+    assert!(!g.room_awake(&r));
+}
+
+#[test]
+fn killing_the_summoned_boss_drops_the_element_and_empties_the_room() {
+    let mut g = Game::new(309);
+    g.reached = 11;
+    g.dungeon.boss_defeated = true;
+    g.dungeon.rooms.push(Room { x: 2, y: 5, w: 1, h: 1, front: (2, 5), kind: KEKKAI_ROOM.into(), door: Dir::Down, open4: false, mons: vec![Some("boss".into())], chest_open: false, refill: 0 });
+    put_miasma(&mut g, 5);
+    for m in g.party.iter_mut() {
+        m.hp_max = 99999;
+        m.hp = 99999;
+    }
+    let mut b = Battle::new(&g, &[Source::Room(0, 0)]);
+    b.enemies[0].hp = 1;
+    for _ in 0..200 {
+        match b.advance(&mut g) {
+            Advance::End(_) => break,
+            Advance::Msgs(_) => {}
+            Advance::NeedCmd(i) => {
+                b.command(&mut g, i, if i == 0 { Cmd::Attack(0) } else { Cmd::Defend });
+            }
+        }
+    }
+    assert_eq!(g.count("ヘビリンゴのエレメント"), 1);
+    assert!(g.dungeon.rooms[0].mons[0].is_none());
+}
+
+#[test]
+fn armor_shop_sister_brings_up_the_elements_once_after_11f() {
+    use crate::script::*;
+    use crate::shop::ShopKind;
+    let mut g = Game::new(310);
+    g.talks_seen.insert("hello:armor".to_string());
+    g.reached = 10;
+    assert!(!forge_pending(&g));
+    assert!(on_enter(&mut g, ShopKind::Armor).iter().all(|l| !l.contains("エレメント")));
+    g.reached = 11;
+    assert!(forge_pending(&g));
+    let l = on_enter(&mut g, ShopKind::Armor);
+    assert!(l.iter().any(|x| x.contains("エレメント")) && l.iter().any(|x| x.contains("けっかいじん(簡易)")), "{:?}", l);
+    assert!(g.forge_told() && !forge_pending(&g));
+    assert!(on_enter(&mut g, ShopKind::Armor).iter().all(|l| !l.contains("エレメント")));
+    // 開いたあとの お礼の 台詞に 料金が 書いてある
+    assert!(forge_open_lines().iter().any(|l| l.contains("30000G") && l.contains("50000G")));
 }

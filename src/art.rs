@@ -31,7 +31,7 @@ const PNG_ONLY: &[&str] = &[
     "mon_hibuta", "mon_ningen", "mon_firelime", "mon_hotghost", "mon_nekomata", "mon_waterlime", "mon_coldghost", "mon_otter", "mon_carrot",
     "mon_crowcat", "mon_blackcat", "mon_wizdrill", "mon_blackwar", "mon_bone", "mon_dino", "mon_sorcerer", "mon_tetsu",
     "stand_a", "stand_m", "stand_j",
-    "room_瘴気発生装置", "room_いろり", "room_水のみば", "room_りっぱなベッド", "room_はなぞの", "room_どうじょう",
+    "room_瘴気発生装置", "room_けっかいじん(簡易)", "room_いろり", "room_水のみば", "room_りっぱなベッド", "room_はなぞの", "room_どうじょう",
 ];
 
 pub struct Art {

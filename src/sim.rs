@@ -1220,6 +1220,11 @@ impl Game {
         self.dungeon.rooms.iter().filter(|r| r.kind == MIASMA_ROOM).count().min(MAX_MIASMA)
     }
 
+    /// 部屋の 魔物が 出てくるか。けっかいじん(簡易)は 瘴気発生装置が 5個 そろった 階でだけ 動く
+    pub fn room_awake(&self, r: &Room) -> bool {
+        r.kind != KEKKAI_ROOM || self.miasma_count() >= MAX_MIASMA
+    }
+
     fn room_block(&self, kind: &str) -> Result<((usize, usize), (usize, usize), Vec<(usize, usize)>), String> {
         if kind == MIASMA_ROOM && self.miasma_count() >= MAX_MIASMA {
             return Err(format!("瘴気発生装置は 1つの階に {}個までしか 置けない", MAX_MIASMA));
@@ -1514,7 +1519,7 @@ impl Game {
         }
         // 1マスで 入口が1つの部屋: 入口の前に立つと魔物が出てくる
         for (i, r) in self.dungeon.rooms.iter().enumerate() {
-            if r.walk_in() || r.stand() != Some((x, y)) {
+            if r.walk_in() || r.stand() != Some((x, y)) || !self.room_awake(r) {
                 continue;
             }
             for (k, m) in r.mons.iter().enumerate() {
@@ -1526,7 +1531,7 @@ impl Game {
         // 歩いて入れる部屋: 上に乗るか、となりに立つと魔物が出てくる(入口が1つの部屋は 壁ごしには ならない)
         let mut near: Vec<(usize, usize)> = vec![];
         for (i, r) in self.dungeon.rooms.iter().enumerate() {
-            if !r.walk_in() {
+            if !r.walk_in() || !self.room_awake(r) {
                 continue;
             }
             if let Some(k) = r.slot_at(x, y) {
@@ -1643,6 +1648,16 @@ impl Game {
                 self.dungeon.rooms[i].mons[k] = Some(m.to_string());
                 rep.spawned += 1;
                 need -= 1;
+            }
+        }
+        // けっかいじん(簡易): 瘴気発生装置が 5個 そろった階で、その階の ボスを たおしたあとなら 夜に ボスを よびなおす
+        if self.miasma_count() >= MAX_MIASMA && self.dungeon.boss_defeated {
+            for i in 0..self.dungeon.rooms.len() {
+                let r = &self.dungeon.rooms[i];
+                if r.kind == KEKKAI_ROOM && r.alive() == 0 && !r.mons.is_empty() {
+                    self.dungeon.rooms[i].mons[0] = Some(boss_id(floor).to_string());
+                    rep.spawned += 1;
+                }
             }
         }
         // 通路の魔物
@@ -1899,13 +1914,149 @@ impl Game {
         Ok(format!("シャベルを磨いた! MPが {} になった", self.mp_max))
     }
 
+    // ----- 武器合成(武具屋のお姉さん) -----
+
+    /// お姉さんから エレメントの 話を 聞いたか
+    pub fn forge_told(&self) -> bool {
+        self.talks_seen.contains("forge:told")
+    }
+
+    /// 武器合成が 開いているか
+    pub fn forge_open(&self) -> bool {
+        self.talks_seen.contains("forge:open")
+    }
+
+    /// 持っている エレメントの 種類の 数(0〜9)
+    pub fn elements_have(&self) -> usize {
+        ELEMENTS.iter().filter(|e| self.count(e) > 0).count()
+    }
+
+    /// 9つの エレメントを お姉さんに わたして、武器合成を 開く
+    pub fn forge_unlock(&mut self) -> Result<(), String> {
+        if self.forge_open() {
+            return Err("もう 開いている".to_string());
+        }
+        if self.elements_have() < ELEMENTS.len() {
+            return Err(format!("エレメントが たりない({}/{})", self.elements_have(), ELEMENTS.len()));
+        }
+        for e in ELEMENTS {
+            self.take_item(e, 1);
+        }
+        self.talks_seen.insert("forge:open".to_string());
+        Ok(())
+    }
+
+    /// 合成の 本体に できる 武器(もっていて、武器)か
+    fn forge_main(&self, name: &str) -> Result<(), String> {
+        if !self.forge_open() {
+            return Err("まだ 合成は できない".to_string());
+        }
+        if self.count(name) < 1 || item(name).map(|d| d.kind != Kind::Weapon).unwrap_or(true) {
+            return Err("その武器は 持っていない".to_string());
+        }
+        Ok(())
+    }
+
+    /// 能力の 合成: main(武器)の 枠 slot(0=1枠目 1=2枠目)に、donor(武器)の 能力を つける。donor は なくなる。もともと ついていた 能力は 上書き
+    pub fn fuse_ability(&mut self, main: &str, slot: usize, donor: &str) -> Result<String, String> {
+        self.forge_main(main)?;
+        if slot >= FUSE_SLOTS {
+            return Err("そんな枠は ない".to_string());
+        }
+        let (m, mut slots) = fuse_split(main);
+        let (dm, dslots) = fuse_split(donor);
+        if dslots.iter().any(|s| s.is_some()) {
+            return Err("合成ずみの 武器は 素材に できない".to_string());
+        }
+        let dbase = base_name(dm);
+        if !fuse_donor_ok(dbase) {
+            return Err("その武器には 特殊な能力が ない".to_string());
+        }
+        if self.count(donor) < 1 + (donor == main) as i32 {
+            return Err("素材の武器を 持っていない".to_string());
+        }
+        if dbase == base_name(m) {
+            return Err("おなじ武器の 能力は つけられない".to_string());
+        }
+        if slots.iter().enumerate().any(|(i, s)| i != slot && *s == Some(dbase)) {
+            return Err("その能力は もう 別の枠に ついている".to_string());
+        }
+        let cost = FUSE_COST[slot];
+        if self.gold < cost {
+            return Err("おかねが たりない".to_string());
+        }
+        slots[slot] = Some(dbase);
+        let new = fuse_join(m, slots);
+        if item(&new).is_none() {
+            return Err("合成できない".to_string());
+        }
+        self.gold -= cost;
+        self.take_item(main, 1);
+        self.take_item(donor, 1);
+        self.add_item(&new, 1);
+        Ok(new)
+    }
+
+    /// 枠 slot の 能力を はずす(ただ)。素材は もどらない
+    pub fn fuse_remove(&mut self, main: &str, slot: usize) -> Result<String, String> {
+        self.forge_main(main)?;
+        let (m, mut slots) = fuse_split(main);
+        if slot >= FUSE_SLOTS || slots[slot].is_none() {
+            return Err("その枠には 能力が ついていない".to_string());
+        }
+        slots[slot] = None;
+        let new = fuse_join(m, slots);
+        self.take_item(main, 1);
+        self.add_item(&new, 1);
+        Ok(new)
+    }
+
+    /// 武器強化合成の 条件を しらべる: (できあがる 名前, 費用)。おなじ武器で おなじ +の 数(5〜8)どうし
+    pub fn plus_fuse_plan(&self, main: &str, mat: &str) -> Result<(String, i32), String> {
+        self.forge_main(main)?;
+        if self.count(mat) < 1 + (mat == main) as i32 {
+            return Err("素材の武器を 持っていない".to_string());
+        }
+        let (m, slots) = fuse_split(main);
+        let (base, k) = plus_split(main);
+        let (mbase, mk) = plus_split(mat);
+        if base != mbase || item(mat).map(|d| d.kind != Kind::Weapon).unwrap_or(true) {
+            return Err("おなじ 武器どうしで ないと 強化できない".to_string());
+        }
+        if k != mk {
+            return Err("おなじ +の 数どうしで ないと 強化できない".to_string());
+        }
+        if k < 5 {
+            return Err("強化合成は +5の 武器から".to_string());
+        }
+        if k >= MAX_PLUS {
+            return Err(format!("+{} が 最大", MAX_PLUS));
+        }
+        let _ = m;
+        Ok((fuse_join(&format!("{}+{}", base, k + 1), slots), plus_fuse_cost(k + 1)))
+    }
+
+    /// 武器強化合成: +N と +N を あわせて +(N+1) に。本体の 合成枠は のこり、素材の 枠は きえる
+    pub fn fuse_plus(&mut self, main: &str, mat: &str) -> Result<String, String> {
+        let (new, cost) = self.plus_fuse_plan(main, mat)?;
+        if self.gold < cost {
+            return Err("おかねが たりない".to_string());
+        }
+        self.gold -= cost;
+        self.take_item(main, 1);
+        self.take_item(mat, 1);
+        self.add_item(&new, 1);
+        Ok(new)
+    }
+
     // ----- 装備 -----
 
     /// 持っている 品物の 定義(「ナイフ+3」のような +つきも ふくむ)
     pub fn owned_defs(&self) -> Vec<&'static ItemDef> {
         let mut v: Vec<&'static ItemDef> = ITEMS.iter().filter(|d| self.count(d.name) > 0).collect();
-        let mut plus: Vec<&'static ItemDef> = self.inv.iter().filter(|(n, c)| **c > 0 && plus_split(n).1 > 0).filter_map(|(n, _)| item(n)).collect();
-        plus.sort_by_key(|d| (plus_split(d.name).0.to_string(), plus_split(d.name).1));
+        // +つき・合成ずみの 装備(ITEMS に そのままの 名前では 無いもの)
+        let mut plus: Vec<&'static ItemDef> = self.inv.iter().filter(|(n, c)| **c > 0 && !ITEMS.iter().any(|d| d.name == n.as_str())).filter_map(|(n, _)| item(n)).collect();
+        plus.sort_by_key(|d| (plus_split(d.name).0.to_string(), plus_split(d.name).1, d.name.to_string()));
         v.extend(plus);
         v
     }
@@ -2377,6 +2528,14 @@ impl Battle {
                     got.push(format!("{}+{}", name, k));
                 } else {
                     got.push(name.to_string());
+                }
+            }
+            // 瘴気発生装置を 5個 置いた 階の ボスだけが エレメントを 落とす(武器合成を 開く 材料。100%は 設計値)
+            if e.def.boss && miasma >= MAX_MIASMA && g.reached >= FUSE_FLOOR && !g.forge_open() {
+                if let Some(el) = element_of(e.def.id) {
+                    if g.count(el) == 0 && !got.iter().any(|x| x == el) {
+                        got.push(el.to_string());
+                    }
                 }
             }
             if !e.def.boss {

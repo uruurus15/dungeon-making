@@ -407,15 +407,22 @@ pub fn fireplace() -> Model {
 
 /// けっかいのへや: 4すみの 石柱と 水晶、ゆかの まほうの 輪(低く して 通れるように)
 pub fn barrier_room() -> Model {
+    barrier_with(col(120, 118, 130), col(150, 230, 255), col(190, 120, 255))
+}
+
+/// けっかいじん(簡易): けっかいのへやの 色違い(赤黒い 石柱と、金色の 光)
+pub fn barrier_room_simple() -> Model {
+    barrier_with(col(96, 52, 56), col(255, 205, 110), col(255, 86, 86))
+}
+
+fn barrier_with(stone: macroquad::color::Color, glow: macroquad::color::Color, accent: macroquad::color::Color) -> Model {
     let mut m = Mb::new();
-    let stone = col(120, 118, 130);
-    let glow = col(150, 230, 255);
     for (x, z) in [(-0.4f32, -0.4f32), (0.4, -0.4), (-0.4, 0.4), (0.4, 0.4)] {
         m.lathe(x, 0.0, z, &[(0.0, 0.0), (0.075, 0.0), (0.075, 0.03), (0.05, 0.05), (0.04, 0.3), (0.055, 0.32), (0.0, 0.32)], 8, &|_, _| stone);
         m.at([x, 0.4, z], 0.0, 0.0, 0.0, |m| m.ellipsoid([0.0, 0.0, 0.0], [0.04, 0.07, 0.04], 6, 8, &|th, _| mix(glow, col(230, 250, 255), (th / PI).powi(2))));
     }
     m.ring(0.0, 0.004, 0.0, 0.36, 0.33, 40, glow);
-    m.ring(0.0, 0.004, 0.0, 0.24, 0.225, 32, col(190, 120, 255));
+    m.ring(0.0, 0.004, 0.0, 0.24, 0.225, 32, accent);
     m.ring(0.0, 0.004, 0.0, 0.1, 0.0, 24, shadec(glow, 0.7));
     for i in 0..5 {
         let (a0, a1) = (i as f32 / 5.0 * TAU, ((i + 2) % 5) as f32 / 5.0 * TAU);
