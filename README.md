@@ -257,6 +257,7 @@ DS「ダンジョンメーカー 魔法のシャベルと小さな勇者」を�
 - ビルド: `cargo build --release --target wasm32-unknown-unknown` → `python tools/pack_web.py`(`docs/` に index.html・wasm・JS・assets.pack(画像・音・フォントを1つに)ができる)
 - 確認: `cd docs && python -m http.server 8765` → ブラウザで http://localhost:8765/ 。ヘッドレス確認は `python tools/web_probe.py`(コンソールログ・画面・フレーム時間)
 - セーブ・設定は ブラウザの localStorage。素材は 初回に assets.pack(約14MB)を まとめて ダウンロード。日本語フォントは 同梱の Noto Sans JP(OFL・使う文字だけに 絞った 約0.5MB)
+- **Web版は 同梱フォントに ない文字が 出ない**(デスクトップ版は Windows のフォントを 使うので 気づけない)。`tools/pack_web.py` が 毎回 `tools/subset_font.py` を よんで、`src/*.rs` に 新しい文字が ふえていたら フォントを 作り直す(もとは `C:/Windows/Fonts/NotoSansJP-VF.ttf` の 太さ700。fonttools が 要る)。確認だけなら `python tools/subset_font.py --check`
 - タイトルで **F2** を押すと、12Fの 部屋と魔物が たくさんある ダンジョンが 3D表示で 開く(動作確認用)
 - 公開: GitHub の Settings → Pages で `main` ブランチの `/docs` を 公開元にする
 

@@ -156,7 +156,9 @@ impl App {
         ];
         let ev = m.run(&self.ui, &self.inp, &rows, Rect::new(120.0, SH + 70.0, 336.0, 240.0), 56.0, 28.0, Style::Wood, true);
         self.ui.text_center("矢印/WASD・マウス:えらぶ  Z/Enter:けってい  X:もどる", LW / 2.0, SH + 370.0, 15.0, CREAM);
-        self.ui.text_center("F2: 3D表示の 動作確認(12F・セーブには かかわらない)", LW / 2.0, SH + 346.0, 14.0, rgb(200, 190, 160));
+        if self.debug {
+            self.ui.text_center("F2: 3D表示の 動作確認(12F・セーブには かかわらない)", LW / 2.0, SH + 346.0, 14.0, rgb(200, 190, 160));
+        }
         self.ui.text_center("ダンジョン Z:ほる X:へや V:まほう U:もどす WASD:むき・すすむ", LW / 2.0, SH + 396.0, 15.0, CREAM);
         // F2: 3D表示の 動作確認用(12Fの 部屋と魔物が たくさん ある ダンジョン)
         if is_key_pressed(KeyCode::F2) {

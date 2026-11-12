@@ -419,7 +419,7 @@ impl App {
                             }
                             StepResult::Stairs => {
                                 let n = self.g.floor_no() + 1;
-                                self.say(format!("地下{}階への階段だ。(この先はまだ工事中…つづく)", n));
+                                self.say(format!("地下{}階への階段だ。…だが、まだ この先へは 進めないようだ。", n));
                             }
                         }
                     }

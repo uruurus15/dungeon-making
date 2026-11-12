@@ -358,6 +358,8 @@ const SRC_TEXT: &str = concat!(
     include_str!("art.rs"),
     include_str!("layout.rs"),
     include_str!("debug.rs"),
+    include_str!("models.rs"),
+    include_str!("view3d.rs"),
     include_str!("ui.rs"),
 );
 
